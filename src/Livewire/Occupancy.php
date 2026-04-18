@@ -15,17 +15,11 @@ class Occupancy extends Component
     #[Url(as: 'gruppe', except: '')]
     public string $activeGroup = '';
 
-    public function setPeriod(string $period): void
+    public function updatingPeriod($value): void
     {
-        if (!in_array($period, ['week', 'month', 'year', 'all'], true)) {
-            $period = 'month';
+        if (!in_array($value, ['week', 'month', 'year', 'all'], true)) {
+            $this->period = 'month';
         }
-        $this->period = $period;
-    }
-
-    public function setGroup(string $group): void
-    {
-        $this->activeGroup = $group;
     }
 
     protected function periodRange(): array
@@ -35,6 +29,16 @@ class Occupancy extends Component
             'year'  => [now()->startOfYear()->toDateString(), now()->endOfYear()->toDateString()],
             'all'   => [now()->subMonths(1)->startOfMonth()->toDateString(), now()->addMonths(3)->endOfMonth()->toDateString()],
             default => [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()],
+        };
+    }
+
+    protected function periodLabel(): string
+    {
+        return match ($this->period) {
+            'week'  => 'diese Woche',
+            'year'  => 'dieses Jahr',
+            'all'   => 'nächste 3 Monate',
+            default => 'diesen Monat',
         };
     }
 
@@ -58,9 +62,9 @@ class Occupancy extends Component
         [$periodStart, $periodEnd] = $this->periodRange();
 
         // Platzhalter: Buchungen kommen später aus dem Events-Modul.
-        $byDate = [];
+        $byDate       = [];
         $monthlyStats = [];
-        $yearlyStats = [];
+        $yearlyStats  = [];
 
         return view('locations::livewire.occupancy', [
             'locations'    => $locations,
@@ -69,6 +73,7 @@ class Occupancy extends Component
             'roomNames'    => $roomNames,
             'periodStart'  => $periodStart,
             'periodEnd'    => $periodEnd,
+            'periodLabel'  => $this->periodLabel(),
             'byDate'       => $byDate,
             'monthlyStats' => $monthlyStats,
             'yearlyStats'  => $yearlyStats,
