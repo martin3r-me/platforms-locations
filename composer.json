@@ -1,0 +1,27 @@
+{
+    "name": "martin3r/platforms-locations",
+    "description": "Locations Module for Platform - Location management",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Platform Team",
+            "email": "team@platform.com"
+        }
+    ],
+    "require": {},
+    "autoload": {
+        "psr-4": {
+            "Platform\\Locations\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Platform\\Locations\\LocationsServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}

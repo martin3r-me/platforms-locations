@@ -1,0 +1,96 @@
+<?php
+
+/**
+ * Locations Service Provider
+ *
+ * @see Platform\Core\PlatformCore für Modul-Registrierung
+ * @see Platform\Core\Routing\ModuleRouter für Route-Registrierung
+ */
+
+namespace Platform\Locations;
+
+use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
+use Livewire\Livewire;
+use Platform\Core\PlatformCore;
+use Platform\Core\Routing\ModuleRouter;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
+
+class LocationsServiceProvider extends ServiceProvider
+{
+    public function register(): void
+    {
+        $this->mergeConfigFrom(__DIR__.'/../config/locations.php', 'locations');
+    }
+
+    public function boot(): void
+    {
+        if (
+            config()->has('locations.routing') &&
+            config()->has('locations.navigation') &&
+            Schema::hasTable('modules')
+        ) {
+            PlatformCore::registerModule([
+                'key'        => 'locations',
+                'title'      => 'Locations',
+                'group'      => 'operations',
+                'routing'    => config('locations.routing'),
+                'guard'      => config('locations.guard'),
+                'navigation' => config('locations.navigation'),
+                'sidebar'    => config('locations.sidebar'),
+            ]);
+        }
+
+        if (PlatformCore::getModule('locations')) {
+            ModuleRouter::group('locations', function () {
+                $this->loadRoutesFrom(__DIR__.'/../routes/web.php');
+            });
+        }
+
+        $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
+
+        $this->publishes([
+            __DIR__.'/../config/locations.php' => config_path('locations.php'),
+        ], 'config');
+
+        $this->loadViewsFrom(__DIR__ . '/../resources/views', 'locations');
+
+        $this->registerLivewireComponents();
+    }
+
+    protected function registerLivewireComponents(): void
+    {
+        $basePath = __DIR__ . '/Livewire';
+        $baseNamespace = 'Platform\\Locations\\Livewire';
+        $prefix = 'locations';
+
+        if (!is_dir($basePath)) {
+            return;
+        }
+
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($basePath)
+        );
+
+        foreach ($iterator as $file) {
+            if (!$file->isFile() || $file->getExtension() !== 'php') {
+                continue;
+            }
+
+            $relativePath = str_replace($basePath . DIRECTORY_SEPARATOR, '', $file->getPathname());
+            $classPath = str_replace(['/', '.php'], ['\\', ''], $relativePath);
+            $class = $baseNamespace . '\\' . $classPath;
+
+            if (!class_exists($class)) {
+                continue;
+            }
+
+            $aliasPath = str_replace(['\\', '/'], '.', Str::kebab(str_replace('.php', '', $relativePath)));
+            $alias = $prefix . '.' . $aliasPath;
+
+            Livewire::component($alias, $class);
+        }
+    }
+}
