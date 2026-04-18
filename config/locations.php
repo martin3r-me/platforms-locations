@@ -29,10 +29,25 @@ return [
                     'route' => 'locations.dashboard',
                     'icon'  => 'heroicon-o-home',
                 ],
+            ],
+        ],
+        [
+            'group' => 'Stammdaten',
+            'items' => [
                 [
-                    'label' => 'Test',
-                    'route' => 'locations.test',
-                    'icon'  => 'heroicon-o-beaker',
+                    'label' => 'Locations',
+                    'route' => 'locations.manage',
+                    'icon'  => 'heroicon-o-building-office',
+                ],
+            ],
+        ],
+        [
+            'group' => 'Auswertung',
+            'items' => [
+                [
+                    'label' => 'Auslastung',
+                    'route' => 'locations.occupancy',
+                    'icon'  => 'heroicon-o-chart-bar',
                 ],
             ],
         ],

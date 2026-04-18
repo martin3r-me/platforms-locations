@@ -17,42 +17,42 @@
                         Locations
                     </h2>
                     <p class="text-[var(--ui-muted)]">
-                        Verwalte deine Standorte und Locations.
+                        Verwalte Locations, Räume und deren Auslastung.
                     </p>
                 </div>
             </x-ui-panel>
 
-            {{-- Placeholder Stats --}}
+            {{-- Stats --}}
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 <x-ui-dashboard-tile
-                    title="Standorte"
-                    :count="0"
+                    title="Locations"
+                    :count="$totalLocations"
                     subtitle="Gesamt"
                     icon="map-pin"
                     variant="secondary"
                     size="lg"
                 />
                 <x-ui-dashboard-tile
-                    title="Aktiv"
-                    :count="0"
-                    subtitle="Aktiv"
-                    icon="check-circle"
-                    variant="secondary"
-                    size="lg"
-                />
-                <x-ui-dashboard-tile
-                    title="Räume"
-                    :count="0"
-                    subtitle="Verfügbar"
-                    icon="building-office"
+                    title="Gruppen"
+                    :count="$uniqueGroups"
+                    subtitle="unterschiedlich"
+                    icon="squares-2x2"
                     variant="secondary"
                     size="lg"
                 />
                 <x-ui-dashboard-tile
                     title="Kapazität"
-                    :count="0"
-                    subtitle="Gesamt"
+                    :count="$totalCapacity"
+                    subtitle="PAX gesamt"
                     icon="users"
+                    variant="secondary"
+                    size="lg"
+                />
+                <x-ui-dashboard-tile
+                    title="Mehrfachbelegung"
+                    :count="$multiUseLocations"
+                    subtitle="Locations"
+                    icon="arrow-path"
                     variant="secondary"
                     size="lg"
                 />
@@ -68,10 +68,16 @@
                 <div>
                     <h3 class="text-sm font-bold text-[var(--ui-secondary)] uppercase tracking-wider mb-3">Aktionen</h3>
                     <div class="space-y-2">
-                        <x-ui-button variant="secondary-outline" size="sm" :href="route('locations.test')" wire:navigate class="w-full">
+                        <x-ui-button variant="secondary-outline" size="sm" :href="route('locations.manage')" wire:navigate class="w-full">
                             <span class="flex items-center gap-2">
-                                @svg('heroicon-o-beaker', 'w-4 h-4')
-                                Test-Seite
+                                @svg('heroicon-o-building-office', 'w-4 h-4')
+                                Locations verwalten
+                            </span>
+                        </x-ui-button>
+                        <x-ui-button variant="secondary-outline" size="sm" :href="route('locations.occupancy')" wire:navigate class="w-full">
+                            <span class="flex items-center gap-2">
+                                @svg('heroicon-o-chart-bar', 'w-4 h-4')
+                                Auslastung
                             </span>
                         </x-ui-button>
                     </div>
@@ -82,19 +88,12 @@
                     <h3 class="text-sm font-bold text-[var(--ui-secondary)] uppercase tracking-wider mb-3">Schnellstatistiken</h3>
                     <div class="space-y-3">
                         <div class="p-3 bg-[var(--ui-muted-5)] rounded-lg border border-[var(--ui-border)]/40">
-                            <div class="text-xs text-[var(--ui-muted)]">Standorte</div>
-                            <div class="text-lg font-bold text-[var(--ui-secondary)]">0</div>
+                            <div class="text-xs text-[var(--ui-muted)]">Locations</div>
+                            <div class="text-lg font-bold text-[var(--ui-secondary)]">{{ $totalLocations }}</div>
                         </div>
-                    </div>
-                </div>
-
-                {{-- Recent Activity --}}
-                <div>
-                    <h3 class="text-sm font-bold text-[var(--ui-secondary)] uppercase tracking-wider mb-3">Letzte Aktivitäten</h3>
-                    <div class="space-y-2 text-sm">
-                        <div class="p-2 rounded border border-[var(--ui-border)]/60 bg-[var(--ui-muted-5)]">
-                            <div class="font-medium text-[var(--ui-secondary)] truncate">Dashboard geladen</div>
-                            <div class="text-[var(--ui-muted)] text-xs">vor 1 Minute</div>
+                        <div class="p-3 bg-[var(--ui-muted-5)] rounded-lg border border-[var(--ui-border)]/40">
+                            <div class="text-xs text-[var(--ui-muted)]">Gesamt-Kapazität</div>
+                            <div class="text-lg font-bold text-[var(--ui-secondary)]">{{ $totalCapacity }} PAX</div>
                         </div>
                     </div>
                 </div>
