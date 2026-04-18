@@ -180,7 +180,7 @@
                         @endif
                     </div>
 
-                    <div class="relative">
+                    <div class="relative z-[1000]">
                         <input
                             wire:model.live.debounce.400ms="adresse"
                             type="text"
@@ -194,7 +194,7 @@
                         </div>
 
                         @if(!empty($addressSuggestions))
-                            <ul class="absolute left-0 right-0 top-full mt-1 bg-white border border-[var(--ui-border)] rounded-md shadow-lg max-h-60 overflow-y-auto z-50">
+                            <ul class="absolute left-0 right-0 top-full mt-1 bg-white border border-[var(--ui-border)] rounded-md shadow-xl max-h-60 overflow-y-auto z-[1100]">
                                 @foreach($addressSuggestions as $i => $s)
                                     <li>
                                         <button type="button"
@@ -211,7 +211,7 @@
                         @endif
                     </div>
 
-                    <div wire:ignore>
+                    <div wire:ignore class="relative z-0">
                         <div x-ref="mapContainer"
                              class="w-full h-56 rounded-md border border-[var(--ui-border)] bg-[var(--ui-muted-5)] overflow-hidden"></div>
                     </div>
