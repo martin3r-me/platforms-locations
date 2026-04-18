@@ -27,6 +27,8 @@ class Location extends Model
         'pax_max',
         'mehrfachbelegung',
         'adresse',
+        'latitude',
+        'longitude',
         'sort_order',
     ];
 
@@ -35,8 +37,15 @@ class Location extends Model
         'pax_min' => 'integer',
         'pax_max' => 'integer',
         'mehrfachbelegung' => 'boolean',
+        'latitude' => 'float',
+        'longitude' => 'float',
         'sort_order' => 'integer',
     ];
+
+    public function hasCoordinates(): bool
+    {
+        return $this->latitude !== null && $this->longitude !== null;
+    }
 
     protected static function booted(): void
     {

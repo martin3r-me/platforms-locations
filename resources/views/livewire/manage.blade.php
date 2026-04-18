@@ -3,8 +3,18 @@
         <x-ui-page-navbar title="Locations verwalten" icon="heroicon-o-building-office" />
     </x-slot>
 
+    {{-- Leaflet (OpenStreetMap) --}}
+    @once
+        <link rel="stylesheet"
+              href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+              integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+              crossorigin="anonymous" />
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+                integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+                crossorigin="anonymous" defer></script>
+    @endonce
+
     <x-ui-page-container>
-        {{-- ===== Actionbar ===== --}}
         <x-ui-page-actionbar :breadcrumbs="[
             ['label' => 'Locations', 'route' => 'locations.dashboard'],
             ['label' => 'Verwalten'],
@@ -74,7 +84,14 @@
                                             @endif
                                         </td>
                                         <td class="px-4 py-3">
-                                            <span class="text-xs text-[var(--ui-muted)] line-clamp-1 max-w-xs">{{ $location->adresse ?: '—' }}</span>
+                                            <div class="flex items-center gap-1.5 max-w-xs">
+                                                @if($location->hasCoordinates())
+                                                    <span class="flex-shrink-0 text-[var(--ui-primary)]" title="Position hinterlegt ({{ number_format($location->latitude, 4) }}, {{ number_format($location->longitude, 4) }})">
+                                                        @svg('heroicon-o-map-pin', 'w-3.5 h-3.5')
+                                                    </span>
+                                                @endif
+                                                <span class="text-xs text-[var(--ui-muted)] line-clamp-1">{{ $location->adresse ?: '—' }}</span>
+                                            </div>
                                         </td>
                                         <td class="px-4 py-3">
                                             <div class="flex items-center justify-end gap-1">
@@ -101,7 +118,7 @@
         </div>
 
         {{-- ===== Modal: Create / Edit ===== --}}
-        <x-ui-modal wire:model="showModal" size="md" :hideFooter="true">
+        <x-ui-modal wire:model="showModal" size="lg" :hideFooter="true">
             <x-slot name="header">
                 {{ $editingId ? 'Location bearbeiten' : 'Neue Location' }}
             </x-slot>
@@ -143,10 +160,72 @@
                     </div>
                 </div>
 
-                <div>
-                    <label class="text-[0.65rem] font-semibold text-[var(--ui-muted)] block mb-1">Adresse</label>
-                    <input wire:model="adresse" type="text" placeholder="Straße, PLZ Ort"
-                           class="w-full border border-[var(--ui-border)] rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/30">
+                {{-- ===== Adresse mit Autocomplete + Karte ===== --}}
+                <div
+                    x-data="locationMap({
+                        initialLat: @js($latitude),
+                        initialLng: @js($longitude),
+                    })"
+                    x-init="boot()"
+                    class="space-y-2"
+                >
+                    <div class="flex items-center justify-between">
+                        <label class="text-[0.65rem] font-semibold text-[var(--ui-muted)]">Adresse</label>
+                        @if($latitude !== null && $longitude !== null)
+                            <button type="button" wire:click="clearCoordinates"
+                                    class="text-[0.62rem] text-[var(--ui-muted)] hover:text-red-600 flex items-center gap-1">
+                                @svg('heroicon-o-x-mark', 'w-3 h-3')
+                                Position entfernen
+                            </button>
+                        @endif
+                    </div>
+
+                    <div class="relative">
+                        <input
+                            wire:model.live.debounce.400ms="adresse"
+                            type="text"
+                            placeholder="Straße Nr., PLZ Ort"
+                            autocomplete="off"
+                            class="w-full border border-[var(--ui-border)] rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/30"
+                        />
+                        <div wire:loading wire:target="adresse,searchAddress"
+                             class="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--ui-muted)]">
+                            @svg('heroicon-o-arrow-path', 'w-4 h-4 animate-spin')
+                        </div>
+
+                        @if(!empty($addressSuggestions))
+                            <ul class="absolute left-0 right-0 top-full mt-1 bg-white border border-[var(--ui-border)] rounded-md shadow-lg max-h-60 overflow-y-auto z-50">
+                                @foreach($addressSuggestions as $i => $s)
+                                    <li>
+                                        <button type="button"
+                                                wire:click.prevent="selectSuggestion({{ $i }})"
+                                                class="w-full text-left px-3 py-2 text-xs hover:bg-[var(--ui-muted-5)] border-b border-[var(--ui-border)]/30 last:border-b-0">
+                                            <div class="flex items-start gap-2">
+                                                @svg('heroicon-o-map-pin', 'w-3.5 h-3.5 text-[var(--ui-muted)] flex-shrink-0 mt-0.5')
+                                                <span class="line-clamp-2">{{ $s['display'] }}</span>
+                                            </div>
+                                        </button>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        @endif
+                    </div>
+
+                    <div wire:ignore>
+                        <div x-ref="mapContainer"
+                             class="w-full h-56 rounded-md border border-[var(--ui-border)] bg-[var(--ui-muted-5)] overflow-hidden"></div>
+                    </div>
+
+                    <div class="flex items-center justify-between text-[0.6rem]">
+                        @if($latitude !== null && $longitude !== null)
+                            <span class="font-mono text-[var(--ui-muted)]">
+                                {{ number_format($latitude, 6) }}, {{ number_format($longitude, 6) }}
+                            </span>
+                        @else
+                            <span class="text-[var(--ui-muted)]">Tipp: Adresse eingeben und einen Vorschlag auswählen, um die Karte zu setzen.</span>
+                        @endif
+                        <span class="text-[var(--ui-muted)]">Karte: © OpenStreetMap</span>
+                    </div>
                 </div>
 
                 <div>
@@ -172,4 +251,91 @@
             </form>
         </x-ui-modal>
     </x-ui-page-container>
+
+    @once
+        @push('scripts')
+        @endpush
+        <script>
+            window.locationMap = function (config) {
+                return {
+                    config,
+                    map: null,
+                    marker: null,
+                    async boot() {
+                        await this.waitForLeaflet();
+
+                        // Livewire-Event: wenn selectSuggestion() feuert, Marker aktualisieren
+                        window.Livewire.on('locations:map-update', (payload) => {
+                            const data = Array.isArray(payload) ? payload[0] : payload;
+                            this.updateMarker(data?.lat ?? null, data?.lng ?? null);
+                        });
+
+                        // Map initialisieren, sobald das Modal sichtbar ist
+                        this.$watch('$wire.showModal', (open) => {
+                            if (open) {
+                                this.$nextTick(() => {
+                                    if (!this.map) {
+                                        this.initMap();
+                                    } else {
+                                        this.map.invalidateSize();
+                                        this.updateMarker(this.$wire.latitude, this.$wire.longitude);
+                                    }
+                                });
+                            } else if (!open && this.map) {
+                                this.map.remove();
+                                this.map = null;
+                                this.marker = null;
+                            }
+                        });
+
+                        if (this.$wire.showModal && !this.map) {
+                            this.$nextTick(() => this.initMap());
+                        }
+                    },
+                    waitForLeaflet() {
+                        if (window.L) return Promise.resolve();
+                        return new Promise((resolve) => {
+                            const iv = setInterval(() => {
+                                if (window.L) { clearInterval(iv); resolve(); }
+                            }, 50);
+                        });
+                    },
+                    initMap() {
+                        const lat = this.$wire.latitude ?? this.config.initialLat;
+                        const lng = this.$wire.longitude ?? this.config.initialLng;
+                        const hasCoords = lat !== null && lng !== null;
+
+                        this.map = L.map(this.$refs.mapContainer, {
+                            center: hasCoords ? [lat, lng] : [51.1657, 10.4515],
+                            zoom: hasCoords ? 15 : 6,
+                            scrollWheelZoom: false,
+                        });
+
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                            maxZoom: 19,
+                            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>',
+                        }).addTo(this.map);
+
+                        if (hasCoords) {
+                            this.marker = L.marker([lat, lng]).addTo(this.map);
+                        }
+                    },
+                    updateMarker(lat, lng) {
+                        if (!this.map) return;
+                        if (lat !== null && lat !== undefined && lng !== null && lng !== undefined) {
+                            if (this.marker) {
+                                this.marker.setLatLng([lat, lng]);
+                            } else {
+                                this.marker = L.marker([lat, lng]).addTo(this.map);
+                            }
+                            this.map.setView([lat, lng], 15);
+                        } else if (this.marker) {
+                            this.marker.remove();
+                            this.marker = null;
+                        }
+                    },
+                };
+            };
+        </script>
+    @endonce
 </x-ui-page>

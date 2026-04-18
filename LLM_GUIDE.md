@@ -19,8 +19,9 @@
 ## Models
 - `Platform\Locations\Models\Location` (Tabelle `locations_locations`)
   - UUID + `team_id` + `user_id`
-  - Felder: `name`, `kuerzel`, `gruppe`, `pax_min`, `pax_max`, `mehrfachbelegung`, `adresse`, `sort_order`
+  - Felder: `name`, `kuerzel`, `gruppe`, `pax_min`, `pax_max`, `mehrfachbelegung`, `adresse`, `latitude`, `longitude`, `sort_order`
   - SoftDeletes
+  - Helper: `hasCoordinates(): bool`
 
 ## Livewire Components & Routes
 - `Dashboard` → `locations.dashboard` → `/`
@@ -34,6 +35,17 @@
 - Layout: `->layout('platform::layouts.app')`
 - Views: `locations::livewire.viewname`
 - UI-Komponenten: `x-ui-page`, `x-ui-panel`, `x-ui-button`, `x-ui-dashboard-tile`, `x-ui-page-navbar`, `x-ui-page-container`, `x-ui-page-sidebar`
+
+## Geocoding (OpenStreetMap / Nominatim)
+
+Das Adressfeld in `Manage` nutzt Nominatim für Autocomplete und speichert Koordinaten. Konfiguration in `config/locations.php` unter `geocoding.*`:
+
+- `LOCATIONS_NOMINATIM_URL` (Default `https://nominatim.openstreetmap.org`)
+- `LOCATIONS_NOMINATIM_USER_AGENT` (Pflicht laut Policy – Default enthält `config('app.name')`)
+- `LOCATIONS_NOMINATIM_LANG` (Default `de`)
+- `LOCATIONS_NOMINATIM_COUNTRY` (Komma-Liste, Default: DACH + BeNeLux + FR + IT)
+
+Karte rendert im Modal über Leaflet 1.9.4 per CDN. Marker aktualisiert sich live via Livewire-Event `locations:map-update` (wird von `selectSuggestion`/`clearCoordinates` dispatched). DOM unter der Karte ist durch `wire:ignore` gegen Livewire-DOM-Patching geschützt.
 
 ## Occupancy (Auslastung)
 Die Auslastungs-View ist bewusst entkoppelt. Buchungsdaten werden später vom Events-Modul geliefert. Solange keine Buchungen vorliegen, zeigt die View einen leeren State. Der Platzhalter erwartet pro Eintrag: `title`, `optionsrang` (Status) – analog zum alten `Room`-Model.

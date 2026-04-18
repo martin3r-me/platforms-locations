@@ -76,6 +76,8 @@ class GetLocationTool implements ToolContract, ToolMetadataContract
                 'pax_max'          => $location->pax_max,
                 'mehrfachbelegung' => (bool) $location->mehrfachbelegung,
                 'adresse'          => $location->adresse,
+                'latitude'         => $location->latitude,
+                'longitude'        => $location->longitude,
                 'sort_order'       => $location->sort_order,
                 'team_id'          => $location->team_id,
                 'created_at'       => $location->created_at?->toIso8601String(),

@@ -98,6 +98,8 @@ class ListLocationsTool implements ToolContract, ToolMetadataContract
                 'pax_max'          => $l->pax_max,
                 'mehrfachbelegung' => (bool) $l->mehrfachbelegung,
                 'adresse'          => $l->adresse,
+                'latitude'         => $l->latitude,
+                'longitude'        => $l->longitude,
                 'sort_order'       => $l->sort_order,
                 'team_id'          => $l->team_id,
                 'created_at'       => $l->created_at?->toIso8601String(),
