@@ -9,6 +9,7 @@ use Platform\Locations\Models\Location;
 
 class Manage extends Component
 {
+    public bool $showModal = false;
     public ?string $editingId = null;
 
     #[Validate('required|string|max:255')]
@@ -31,27 +32,40 @@ class Manage extends Component
     #[Validate('nullable|string|max:255')]
     public ?string $adresse = null;
 
-    public function resetForm(): void
+    public function openCreate(): void
     {
-        $this->reset(['editingId', 'name', 'kuerzel', 'gruppe', 'pax_min', 'pax_max', 'mehrfachbelegung', 'adresse']);
-        $this->resetErrorBag();
+        $this->resetForm();
+        $this->showModal = true;
     }
 
-    public function edit(string $uuid): void
+    public function openEdit(string $uuid): void
     {
         $team = Auth::user()->currentTeam;
         $location = Location::where('team_id', $team->id)->where('uuid', $uuid)->firstOrFail();
 
-        $this->editingId = $location->uuid;
-        $this->name = $location->name;
-        $this->kuerzel = $location->kuerzel;
-        $this->gruppe = $location->gruppe;
-        $this->pax_min = $location->pax_min;
-        $this->pax_max = $location->pax_max;
+        $this->editingId        = $location->uuid;
+        $this->name             = $location->name;
+        $this->kuerzel          = $location->kuerzel;
+        $this->gruppe           = $location->gruppe;
+        $this->pax_min          = $location->pax_min;
+        $this->pax_max          = $location->pax_max;
         $this->mehrfachbelegung = (bool) $location->mehrfachbelegung;
-        $this->adresse = $location->adresse;
+        $this->adresse          = $location->adresse;
 
-        $this->dispatch('locations:edit-open');
+        $this->resetErrorBag();
+        $this->showModal = true;
+    }
+
+    public function closeModal(): void
+    {
+        $this->showModal = false;
+        $this->resetForm();
+    }
+
+    public function resetForm(): void
+    {
+        $this->reset(['editingId', 'name', 'kuerzel', 'gruppe', 'pax_min', 'pax_max', 'mehrfachbelegung', 'adresse']);
+        $this->resetErrorBag();
     }
 
     public function save(): void
@@ -65,14 +79,14 @@ class Manage extends Component
             $location = Location::where('team_id', $team->id)->where('uuid', $this->editingId)->firstOrFail();
             $location->update($data);
         } else {
-            $data['team_id'] = $team->id;
-            $data['user_id'] = $user->id;
+            $data['team_id']    = $team->id;
+            $data['user_id']    = $user->id;
             $data['sort_order'] = (Location::where('team_id', $team->id)->max('sort_order') ?? 0) + 1;
             Location::create($data);
         }
 
+        $this->showModal = false;
         $this->resetForm();
-        $this->dispatch('locations:saved');
     }
 
     public function delete(string $uuid): void
