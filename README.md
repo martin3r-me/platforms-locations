@@ -8,6 +8,7 @@ Location- und Raum-Stammdaten inkl. Auslastungsübersicht für die Platform.
 - **CRUD** via Livewire 3 + Alpine.js (Modal-basiert)
 - **Auslastungs-View** – Filter nach Zeitraum (Woche/Monat/Jahr/3 Monate) und Gruppe
 - **Dashboard** – Kennzahlen zu Locations, Gruppen, Kapazität, Mehrfachbelegung
+- **AI-Tools** – List/Get/Create/Update/Delete über `Platform\Core\Tools\ToolRegistry`
 - **Team-Scoping** – alle Daten an `currentTeam` gebunden
 - **UUIDs** – `UuidV7` auf allen Models
 
@@ -41,6 +42,12 @@ modules/platforms-locations/
     │   └── Sidebar.php
     ├── Models/
     │   └── Location.php            # UUID + team_id + SoftDeletes
+    ├── Tools/                      # AI-Tools (ToolRegistry)
+    │   ├── ListLocationsTool.php
+    │   ├── GetLocationTool.php
+    │   ├── CreateLocationTool.php
+    │   ├── UpdateLocationTool.php
+    │   └── DeleteLocationTool.php
     └── LocationsServiceProvider.php
 ```
 
@@ -84,6 +91,20 @@ Tabelle `locations_locations`.
 - **Livewire-Alias-Prefix**: `locations.*` (automatisch via ServiceProvider)
 - **Team-Zugriff**: immer `$user->currentTeam->id` verwenden, Queries mit `->where('team_id', ...)` scopen
 - **UI-Komponenten**: `x-ui-page`, `x-ui-panel`, `x-ui-button`, `x-ui-dashboard-tile`, `x-ui-page-navbar`, `x-ui-page-container`, `x-ui-page-sidebar`
+
+## AI-Tools
+
+Die Tools werden automatisch in `Platform\Core\Tools\ToolRegistry` registriert.
+
+| Tool-Name                   | Zweck                                |
+| --------------------------- | ------------------------------------ |
+| `locations.locations.GET`   | Listet Locations des aktuellen Teams |
+| `locations.location.GET`    | Details zu einer Location            |
+| `locations.locations.POST`  | Location anlegen                     |
+| `locations.locations.PATCH` | Location aktualisieren               |
+| `locations.locations.DELETE`| Location löschen (Soft Delete)       |
+
+Alle Schreib-Tools verlangen `team_id` (oder übernehmen das aktuelle Team aus dem `ToolContext`). Get/Update/Delete akzeptieren wahlweise `location_id` oder `uuid`.
 
 ## Auslastung & Events-Modul
 

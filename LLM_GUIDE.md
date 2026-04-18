@@ -37,3 +37,21 @@
 
 ## Occupancy (Auslastung)
 Die Auslastungs-View ist bewusst entkoppelt. Buchungsdaten werden später vom Events-Modul geliefert. Solange keine Buchungen vorliegen, zeigt die View einen leeren State. Der Platzhalter erwartet pro Eintrag: `title`, `optionsrang` (Status) – analog zum alten `Room`-Model.
+
+## AI-Tools (ToolRegistry)
+
+Tools werden in `LocationsServiceProvider::registerTools()` an `Platform\Core\Tools\ToolRegistry` übergeben. Implementierungen liegen in `src/Tools/`.
+
+| Tool-Name                   | Klasse                   | Zweck                                |
+| --------------------------- | ------------------------ | ------------------------------------ |
+| `locations.locations.GET`   | `ListLocationsTool`      | Listet Locations des aktuellen Teams |
+| `locations.location.GET`    | `GetLocationTool`        | Details zu einer Location            |
+| `locations.locations.POST`  | `CreateLocationTool`     | Location anlegen                     |
+| `locations.locations.PATCH` | `UpdateLocationTool`     | Location aktualisieren               |
+| `locations.locations.DELETE`| `DeleteLocationTool`     | Location löschen (Soft Delete)       |
+
+Konventionen:
+- Team-Scope: immer `team_id` aus Argumenten oder `$context->team->id`, Zugriff via `$context->user->teams()` prüfen
+- Identifikation: `location_id` ODER `uuid` bei Get/Update/Delete
+- Return: flaches Location-Payload inkl. `id`, `uuid`, `team_id`
+- Error-Codes: `AUTH_ERROR`, `ACCESS_DENIED`, `VALIDATION_ERROR`, `LOCATION_NOT_FOUND`, `MISSING_TEAM`, `EXECUTION_ERROR`

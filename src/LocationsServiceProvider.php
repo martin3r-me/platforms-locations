@@ -58,6 +58,31 @@ class LocationsServiceProvider extends ServiceProvider
         $this->loadViewsFrom(__DIR__ . '/../resources/views', 'locations');
 
         $this->registerLivewireComponents();
+
+        // Tools registrieren (loose gekoppelt - für AI/Chat)
+        $this->registerTools();
+    }
+
+    /**
+     * Registriert Locations-Tools für die AI/Chat-Funktionalität.
+     */
+    protected function registerTools(): void
+    {
+        try {
+            if (!class_exists(\Platform\Core\Tools\ToolRegistry::class)) {
+                return;
+            }
+
+            $registry = resolve(\Platform\Core\Tools\ToolRegistry::class);
+
+            $registry->register(new \Platform\Locations\Tools\ListLocationsTool());
+            $registry->register(new \Platform\Locations\Tools\GetLocationTool());
+            $registry->register(new \Platform\Locations\Tools\CreateLocationTool());
+            $registry->register(new \Platform\Locations\Tools\UpdateLocationTool());
+            $registry->register(new \Platform\Locations\Tools\DeleteLocationTool());
+        } catch (\Throwable $e) {
+            // Silent fail – Tool-Registry ggf. noch nicht verfügbar
+        }
     }
 
     protected function registerLivewireComponents(): void
