@@ -49,6 +49,9 @@ Tools werden in `LocationsServiceProvider::registerTools()` an `Platform\Core\To
 | `locations.locations.POST`  | `CreateLocationTool`     | Location anlegen                     |
 | `locations.locations.PATCH` | `UpdateLocationTool`     | Location aktualisieren               |
 | `locations.locations.DELETE`| `DeleteLocationTool`     | Location löschen (Soft Delete)       |
+| `locations.locations.bulk.POST`   | `BulkCreateLocationsTool` | Mehrere Locations anlegen (atomic)   |
+| `locations.locations.bulk.PATCH`  | `BulkUpdateLocationsTool` | Mehrere Locations aktualisieren      |
+| `locations.locations.bulk.DELETE` | `BulkDeleteLocationsTool` | Mehrere Locations löschen            |
 
 Konventionen:
 - Team-Scope: immer `team_id` aus Argumenten oder `$context->team->id`, Zugriff via `$context->user->teams()` prüfen

@@ -47,7 +47,10 @@ modules/platforms-locations/
     │   ├── GetLocationTool.php
     │   ├── CreateLocationTool.php
     │   ├── UpdateLocationTool.php
-    │   └── DeleteLocationTool.php
+    │   ├── DeleteLocationTool.php
+    │   ├── BulkCreateLocationsTool.php
+    │   ├── BulkUpdateLocationsTool.php
+    │   └── BulkDeleteLocationsTool.php
     └── LocationsServiceProvider.php
 ```
 
@@ -103,6 +106,9 @@ Die Tools werden automatisch in `Platform\Core\Tools\ToolRegistry` registriert.
 | `locations.locations.POST`  | Location anlegen                     |
 | `locations.locations.PATCH` | Location aktualisieren               |
 | `locations.locations.DELETE`| Location löschen (Soft Delete)       |
+| `locations.locations.bulk.POST`   | Mehrere Locations anlegen (atomic default)   |
+| `locations.locations.bulk.PATCH`  | Mehrere Locations aktualisieren              |
+| `locations.locations.bulk.DELETE` | Mehrere Locations löschen (Soft Delete)      |
 
 Alle Schreib-Tools verlangen `team_id` (oder übernehmen das aktuelle Team aus dem `ToolContext`). Get/Update/Delete akzeptieren wahlweise `location_id` oder `uuid`.
 

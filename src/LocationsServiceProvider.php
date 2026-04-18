@@ -80,6 +80,11 @@ class LocationsServiceProvider extends ServiceProvider
             $registry->register(new \Platform\Locations\Tools\CreateLocationTool());
             $registry->register(new \Platform\Locations\Tools\UpdateLocationTool());
             $registry->register(new \Platform\Locations\Tools\DeleteLocationTool());
+
+            // Bulk-Tools
+            $registry->register(new \Platform\Locations\Tools\BulkCreateLocationsTool());
+            $registry->register(new \Platform\Locations\Tools\BulkUpdateLocationsTool());
+            $registry->register(new \Platform\Locations\Tools\BulkDeleteLocationsTool());
         } catch (\Throwable $e) {
             // Silent fail – Tool-Registry ggf. noch nicht verfügbar
         }
