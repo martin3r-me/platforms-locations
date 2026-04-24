@@ -237,6 +237,56 @@
                     <p class="text-[0.62rem] text-[var(--ui-muted)] mt-1 ml-6">Raum kann an einem Tag mehrfach gebucht werden</p>
                 </div>
 
+                {{-- ===== Grundriss (S3, ohne DB) ===== --}}
+                @if($editingId)
+                    <div class="space-y-2 pt-2 border-t border-[var(--ui-border)]">
+                        <div class="flex items-center justify-between">
+                            <label class="text-[0.65rem] font-semibold text-[var(--ui-muted)]">Grundriss</label>
+                            @if($grundrissFileName)
+                                <span class="text-[0.6rem] font-mono text-[var(--ui-muted)]">{{ $grundrissFileName }}</span>
+                            @endif
+                        </div>
+
+                        @if($grundrissPath)
+                            <div class="flex items-center gap-2 p-2 rounded-md border border-[var(--ui-border)] bg-[var(--ui-muted-5)]">
+                                @svg('heroicon-o-document', 'w-4 h-4 text-[var(--ui-primary)] flex-shrink-0')
+                                <span class="text-xs text-[var(--ui-secondary)] flex-1 line-clamp-1">Grundriss hinterlegt</span>
+                                @if($this->grundrissUrl)
+                                    <a href="{{ $this->grundrissUrl }}" target="_blank" rel="noopener"
+                                       class="text-[0.62rem] text-[var(--ui-primary)] hover:underline flex items-center gap-1">
+                                        @svg('heroicon-o-arrow-top-right-on-square', 'w-3 h-3')
+                                        Anzeigen
+                                    </a>
+                                @endif
+                                <button type="button"
+                                        wire:click="deleteGrundriss"
+                                        wire:confirm="Grundriss wirklich entfernen?"
+                                        class="text-[0.62rem] text-red-600 hover:underline flex items-center gap-1">
+                                    @svg('heroicon-o-trash', 'w-3 h-3')
+                                    Entfernen
+                                </button>
+                            </div>
+                        @endif
+
+                        <div>
+                            <input type="file"
+                                   wire:model="grundriss"
+                                   accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp"
+                                   class="w-full text-xs text-[var(--ui-secondary)] file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border file:border-[var(--ui-border)] file:bg-[var(--ui-muted-5)] file:text-[0.65rem] file:font-semibold file:text-[var(--ui-secondary)] hover:file:bg-[var(--ui-border)]/40 file:cursor-pointer">
+                            <div wire:loading wire:target="grundriss,updatedGrundriss" class="mt-1 flex items-center gap-1 text-[0.62rem] text-[var(--ui-muted)]">
+                                @svg('heroicon-o-arrow-path', 'w-3 h-3 animate-spin')
+                                Upload läuft …
+                            </div>
+                            @error('grundriss') <p class="mt-1 text-[0.62rem] text-red-600">{{ $message }}</p> @enderror
+                            <p class="mt-1 text-[0.62rem] text-[var(--ui-muted)]">PDF, PNG, JPG oder WEBP (max. 20 MB). Wird im S3-Bucket abgelegt, nicht in der Datenbank.</p>
+                        </div>
+                    </div>
+                @else
+                    <div class="pt-2 border-t border-[var(--ui-border)]">
+                        <p class="text-[0.62rem] text-[var(--ui-muted)]">Grundriss-Upload verfügbar, sobald die Location gespeichert wurde.</p>
+                    </div>
+                @endif
+
                 <div class="flex justify-end gap-2 pt-4 border-t border-[var(--ui-border)]">
                     <x-ui-button type="button" variant="secondary-outline" size="sm" wire:click="closeModal">
                         Abbrechen

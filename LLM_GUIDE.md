@@ -47,6 +47,18 @@ Das Adressfeld in `Manage` nutzt Nominatim für Autocomplete und speichert Koord
 
 Karte rendert im Modal über Leaflet 1.9.4 per CDN. Marker aktualisiert sich live via Livewire-Event `locations:map-update` (wird von `selectSuggestion`/`clearCoordinates` dispatched). DOM unter der Karte ist durch `wire:ignore` gegen Livewire-DOM-Patching geschützt.
 
+## Grundriss-Upload (S3, ohne DB)
+
+Locations können einen Grundriss (PDF/PNG/JPG/WEBP, max. 20 MB) zugeordnet bekommen. Die Datei liegt ausschließlich im Storage – **kein** DB-Eintrag, kein ContextFile.
+
+- Disk-Wahl: `s3` falls `filesystems.disks.s3.bucket` konfiguriert, sonst `filesystems.default`
+- Pfadschema: `locations/grundrisse/{location_uuid}/grundriss.{ext}`
+- Überschreiben: Beim Upload wird das Verzeichnis geleert und neu befüllt (deckt Extension-Wechsel ab)
+- Erkennung: `Storage::disk(...)->files($dir)` – ein File pro Location
+- View-URL: `temporaryUrl()` (S3 presigned, 15 min) oder `url()` als Fallback
+- UI: Upload-Sektion nur im Edit-Modus im Manage-Modal (benötigt gespeicherte UUID)
+- Soft-Delete: Beim Soft-Delete der Location bleibt der Grundriss im Bucket erhalten (Restore-Fähigkeit)
+
 ## Occupancy (Auslastung)
 Die Auslastungs-View ist bewusst entkoppelt. Buchungsdaten werden später vom Events-Modul geliefert. Solange keine Buchungen vorliegen, zeigt die View einen leeren State. Der Platzhalter erwartet pro Eintrag: `title`, `optionsrang` (Status) – analog zum alten `Room`-Model.
 
