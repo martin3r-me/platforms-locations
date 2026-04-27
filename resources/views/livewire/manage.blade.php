@@ -319,13 +319,17 @@
                         @else
                             <div class="space-y-1.5">
                                 @foreach($pricingRows as $i => $row)
-                                    <div class="grid grid-cols-[1fr_140px_1.2fr_auto] gap-2 items-center" wire:key="pricing-{{ $i }}">
+                                    <div class="grid grid-cols-[1fr_120px_1fr_140px_auto] gap-2 items-center" wire:key="pricing-{{ $i }}">
                                         <input wire:model="pricingRows.{{ $i }}.day_type_label" type="text" placeholder="Tag-Typ (z.B. Veranstaltungstag)"
                                                class="w-full border border-[var(--ui-border)] rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/30">
                                         <input wire:model="pricingRows.{{ $i }}.price_net" type="number" step="0.01" min="0" placeholder="Preis €"
                                                class="w-full border border-[var(--ui-border)] rounded-md px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/30">
                                         <input wire:model="pricingRows.{{ $i }}.label" type="text" placeholder="Optionales Label"
                                                class="w-full border border-[var(--ui-border)] rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/30">
+                                        <input wire:model="pricingRows.{{ $i }}.article_number" type="text" maxlength="30"
+                                               placeholder="Artikelnr. (Events)"
+                                               title="Optional: Artikelnummer aus Events-Stamm. Bei Einbuchung werden Gruppe/Name/MwSt vom Artikel uebernommen."
+                                               class="w-full border border-[var(--ui-border)] rounded-md px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/30">
                                         <button type="button" wire:click="removePricingRow({{ $i }})"
                                                 class="text-[0.62rem] text-red-600 hover:bg-red-50 rounded p-1.5">
                                             @svg('heroicon-o-trash', 'w-3.5 h-3.5')
@@ -334,7 +338,7 @@
                                 @endforeach
                             </div>
                         @endif
-                        <p class="text-[0.62rem] text-[var(--ui-muted)]">Tag-Typ-Volltext muss mit den Tages-Typen aus den Events-Settings übereinstimmen (z.B. „Veranstaltungstag", „Aufbautag").</p>
+                        <p class="text-[0.62rem] text-[var(--ui-muted)]">Tag-Typ-Volltext muss mit den Tages-Typen aus den Events-Settings übereinstimmen (z.B. „Veranstaltungstag", „Aufbautag"). Optionale Artikelnummer verknüpft mit dem Events-Artikelstamm — bei der Einbuchung werden Gruppe, Name, MwSt, EK und Procurement-Type vom Artikel übernommen; der Preis bleibt aus dem Pricing-Eintrag.</p>
                     </div>
                 @endif
 

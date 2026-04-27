@@ -261,6 +261,7 @@ class Location extends Model
             'price_net' => (string) $p->price_net,
             'label' => $p->label,
             'display_label' => $p->displayLabel(),
+            'article_number' => $p->article_number,
         ])->all();
     }
 

@@ -48,6 +48,7 @@ class ListLocationPricingsTool implements ToolContract, ToolMetadataContract
                 'day_type_label' => $p->day_type_label,
                 'price_net'      => (float) $p->price_net,
                 'label'          => $p->label,
+                'article_number' => $p->article_number,
                 'sort_order'     => (int) $p->sort_order,
             ])->all();
 

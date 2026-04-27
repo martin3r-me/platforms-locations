@@ -22,6 +22,7 @@ class LocationPricing extends Model
         'day_type_label',
         'price_net',
         'label',
+        'article_number',
         'sort_order',
     ];
 

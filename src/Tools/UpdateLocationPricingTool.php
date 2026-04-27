@@ -17,7 +17,7 @@ class UpdateLocationPricingTool implements ToolContract, ToolMetadataContract
 
     public function getDescription(): string
     {
-        return 'PATCH /locations/pricings/{id} - Aktualisiert einen Mietpreis-Eintrag. Identifikation: pricing_id ODER uuid. Felder: day_type_label, price_net, label, sort_order (alle optional, nur uebergebene werden geaendert).';
+        return 'PATCH /locations/pricings/{id} - Aktualisiert einen Mietpreis-Eintrag. Identifikation: pricing_id ODER uuid. Felder: day_type_label, price_net, label, article_number (Events-Artikelstamm-Verknuepfung), sort_order (alle optional, nur uebergebene werden geaendert).';
     }
 
     public function getSchema(): array
@@ -30,6 +30,7 @@ class UpdateLocationPricingTool implements ToolContract, ToolMetadataContract
                 'day_type_label' => ['type' => 'string'],
                 'price_net'      => ['type' => 'number'],
                 'label'          => ['type' => 'string'],
+                'article_number' => ['type' => 'string', 'description' => 'Artikelnummer aus dem Events-Stamm. Leerstring oder null entfernt die Verknuepfung.'],
                 'sort_order'     => ['type' => 'integer'],
             ],
         ];
@@ -73,6 +74,11 @@ class UpdateLocationPricingTool implements ToolContract, ToolMetadataContract
             if (array_key_exists('label', $arguments)) {
                 $update['label'] = $arguments['label'] !== '' ? (string) $arguments['label'] : null;
             }
+            if (array_key_exists('article_number', $arguments)) {
+                $update['article_number'] = $arguments['article_number'] !== '' && $arguments['article_number'] !== null
+                    ? mb_substr((string) $arguments['article_number'], 0, 30)
+                    : null;
+            }
             if (array_key_exists('sort_order', $arguments)) {
                 $update['sort_order'] = (int) $arguments['sort_order'];
             }
@@ -89,6 +95,7 @@ class UpdateLocationPricingTool implements ToolContract, ToolMetadataContract
                 'day_type_label' => $pricing->day_type_label,
                 'price_net'      => (float) $pricing->price_net,
                 'label'          => $pricing->label,
+                'article_number' => $pricing->article_number,
                 'sort_order'     => (int) $pricing->sort_order,
                 'message'        => 'Pricing aktualisiert.',
             ]);

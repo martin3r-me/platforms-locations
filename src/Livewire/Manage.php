@@ -82,7 +82,7 @@ class Manage extends Component
     /** @var array<int,array{id:?int,uuid:?string,label:string,pax_max_ca:?int,sort_order:int,_dirty:bool}> */
     public array $seatingRows = [];
 
-    /** @var array<int,array{id:?int,uuid:?string,day_type_label:string,price_net:?string,label:?string,sort_order:int,_dirty:bool}> */
+    /** @var array<int,array{id:?int,uuid:?string,day_type_label:string,price_net:?string,label:?string,article_number:?string,sort_order:int,_dirty:bool}> */
     public array $pricingRows = [];
 
     /** @var array<int,array{id:?int,uuid:?string,label:string,price_net:?string,unit:string,is_active:bool,sort_order:int,_dirty:bool}> */
@@ -471,6 +471,7 @@ class Manage extends Component
             'day_type_label' => (string) $r->day_type_label,
             'price_net'      => $r->price_net !== null ? (string) $r->price_net : null,
             'label'          => $r->label,
+            'article_number' => $r->article_number,
             'sort_order'     => (int) $r->sort_order,
             '_dirty'         => false,
         ])->values()->all();
@@ -522,6 +523,7 @@ class Manage extends Component
             'day_type_label' => '',
             'price_net'      => null,
             'label'          => null,
+            'article_number' => null,
             'sort_order'     => $next,
             '_dirty'         => true,
         ];
@@ -604,11 +606,15 @@ class Manage extends Component
             if ($dayType === '' || $price === null) {
                 continue;
             }
+            $articleNumber = isset($row['article_number']) && $row['article_number'] !== ''
+                ? mb_substr(trim((string) $row['article_number']), 0, 30)
+                : null;
             $payload = [
                 'location_id'    => $location->id,
                 'day_type_label' => $dayType,
                 'price_net'      => $price,
                 'label'          => $row['label'] !== null && $row['label'] !== '' ? (string) $row['label'] : null,
+                'article_number' => $articleNumber,
                 'sort_order'     => (int) ($row['sort_order'] ?? 0),
             ];
             if (!empty($row['id'])) {
