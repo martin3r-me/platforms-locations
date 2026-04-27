@@ -153,11 +153,44 @@
                         @error('pax_min') <p class="mt-1 text-[0.62rem] text-red-600">{{ $message }}</p> @enderror
                     </div>
                     <div>
-                        <label class="text-[0.65rem] font-semibold text-[var(--ui-muted)] block mb-1">PAX Max</label>
+                        <label class="text-[0.65rem] font-semibold text-[var(--ui-muted)] block mb-1">PAX Max (inkl. Personal)</label>
                         <input wire:model="pax_max" type="number" min="0" placeholder="0"
                                class="w-full border border-[var(--ui-border)] rounded-md px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/30">
                         @error('pax_max') <p class="mt-1 text-[0.62rem] text-red-600">{{ $message }}</p> @enderror
                     </div>
+                </div>
+
+                {{-- ===== Erweiterte Stammdaten ===== --}}
+                <div class="grid grid-cols-[1fr_140px_auto] gap-3 items-end">
+                    <div>
+                        <label class="text-[0.65rem] font-semibold text-[var(--ui-muted)] block mb-1">Größe (qm)</label>
+                        <input wire:model="groesse_qm" type="number" step="0.01" min="0" placeholder="z.B. 400"
+                               class="w-full border border-[var(--ui-border)] rounded-md px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/30">
+                        @error('groesse_qm') <p class="mt-1 text-[0.62rem] text-red-600">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="text-[0.65rem] font-semibold text-[var(--ui-muted)] block mb-1">Hallennummer</label>
+                        <input wire:model="hallennummer" type="text" maxlength="30" placeholder="z.B. 11"
+                               class="w-full border border-[var(--ui-border)] rounded-md px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/30">
+                    </div>
+                    <label class="flex items-center gap-2 cursor-pointer select-none pb-2">
+                        <input wire:model="barrierefrei" type="checkbox"
+                               class="w-4 h-4 accent-[var(--ui-primary)] cursor-pointer">
+                        <span class="text-xs font-medium text-[var(--ui-secondary)]">Barrierefrei</span>
+                    </label>
+                </div>
+
+                <div>
+                    <label class="text-[0.65rem] font-semibold text-[var(--ui-muted)] block mb-1">Besonderheit</label>
+                    <textarea wire:model="besonderheit" rows="2" placeholder="z.B. 3 verfahrbare Kronleuchter"
+                              class="w-full border border-[var(--ui-border)] rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/30"></textarea>
+                </div>
+
+                <div>
+                    <label class="text-[0.65rem] font-semibold text-[var(--ui-muted)] block mb-1">Anlässe</label>
+                    <input wire:model="anlaesseInput" type="text" placeholder="z.B. Hochzeit, Firmenfeier, Tagung"
+                           class="w-full border border-[var(--ui-border)] rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/30">
+                    <p class="mt-1 text-[0.62rem] text-[var(--ui-muted)]">Komma-getrennt</p>
                 </div>
 
                 {{-- ===== Adresse mit Autocomplete + Karte ===== --}}
@@ -236,6 +269,118 @@
                     </label>
                     <p class="text-[0.62rem] text-[var(--ui-muted)] mt-1 ml-6">Raum kann an einem Tag mehrfach gebucht werden</p>
                 </div>
+
+                {{-- ===== Bestuhlungsoptionen (ca.-Werte) ===== --}}
+                @if($editingId)
+                    <div class="space-y-2 pt-2 border-t border-[var(--ui-border)]">
+                        <div class="flex items-center justify-between">
+                            <label class="text-[0.65rem] font-semibold text-[var(--ui-muted)]">Bestuhlungsoptionen (ca.)</label>
+                            <button type="button" wire:click="addSeatingRow"
+                                    class="text-[0.62rem] text-[var(--ui-primary)] hover:underline flex items-center gap-1">
+                                @svg('heroicon-o-plus', 'w-3 h-3')
+                                Zeile hinzufügen
+                            </button>
+                        </div>
+                        @if(empty($seatingRows))
+                            <p class="text-[0.62rem] text-[var(--ui-muted)]">Noch keine Bestuhlungsoptionen gepflegt.</p>
+                        @else
+                            <div class="space-y-1.5">
+                                @foreach($seatingRows as $i => $row)
+                                    <div class="grid grid-cols-[1fr_120px_auto] gap-2 items-center" wire:key="seating-{{ $i }}">
+                                        <input wire:model="seatingRows.{{ $i }}.label" type="text" placeholder="z.B. Reihenbestuhlung"
+                                               class="w-full border border-[var(--ui-border)] rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/30">
+                                        <input wire:model="seatingRows.{{ $i }}.pax_max_ca" type="number" min="0" placeholder="bis zu PAX"
+                                               class="w-full border border-[var(--ui-border)] rounded-md px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/30">
+                                        <button type="button" wire:click="removeSeatingRow({{ $i }})"
+                                                class="text-[0.62rem] text-red-600 hover:bg-red-50 rounded p-1.5">
+                                            @svg('heroicon-o-trash', 'w-3.5 h-3.5')
+                                        </button>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+                        <p class="text-[0.62rem] text-[var(--ui-muted)]">Reine ca.-Hinweise. Mischformen aus runden/eckigen Tischen sind nicht abgebildet.</p>
+                    </div>
+                @endif
+
+                {{-- ===== Mietpreise pro Tag-Typ ===== --}}
+                @if($editingId)
+                    <div class="space-y-2 pt-2 border-t border-[var(--ui-border)]">
+                        <div class="flex items-center justify-between">
+                            <label class="text-[0.65rem] font-semibold text-[var(--ui-muted)]">Mietpreise (Netto)</label>
+                            <button type="button" wire:click="addPricingRow"
+                                    class="text-[0.62rem] text-[var(--ui-primary)] hover:underline flex items-center gap-1">
+                                @svg('heroicon-o-plus', 'w-3 h-3')
+                                Zeile hinzufügen
+                            </button>
+                        </div>
+                        @if(empty($pricingRows))
+                            <p class="text-[0.62rem] text-[var(--ui-muted)]">Noch keine Mietpreise gepflegt.</p>
+                        @else
+                            <div class="space-y-1.5">
+                                @foreach($pricingRows as $i => $row)
+                                    <div class="grid grid-cols-[1fr_140px_1.2fr_auto] gap-2 items-center" wire:key="pricing-{{ $i }}">
+                                        <input wire:model="pricingRows.{{ $i }}.day_type_label" type="text" placeholder="Tag-Typ (z.B. Veranstaltungstag)"
+                                               class="w-full border border-[var(--ui-border)] rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/30">
+                                        <input wire:model="pricingRows.{{ $i }}.price_net" type="number" step="0.01" min="0" placeholder="Preis €"
+                                               class="w-full border border-[var(--ui-border)] rounded-md px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/30">
+                                        <input wire:model="pricingRows.{{ $i }}.label" type="text" placeholder="Optionales Label"
+                                               class="w-full border border-[var(--ui-border)] rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/30">
+                                        <button type="button" wire:click="removePricingRow({{ $i }})"
+                                                class="text-[0.62rem] text-red-600 hover:bg-red-50 rounded p-1.5">
+                                            @svg('heroicon-o-trash', 'w-3.5 h-3.5')
+                                        </button>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+                        <p class="text-[0.62rem] text-[var(--ui-muted)]">Tag-Typ-Volltext muss mit den Tages-Typen aus den Events-Settings übereinstimmen (z.B. „Veranstaltungstag", „Aufbautag").</p>
+                    </div>
+                @endif
+
+                {{-- ===== Optionale Add-ons ===== --}}
+                @if($editingId)
+                    <div class="space-y-2 pt-2 border-t border-[var(--ui-border)]">
+                        <div class="flex items-center justify-between">
+                            <label class="text-[0.65rem] font-semibold text-[var(--ui-muted)]">Optionale Add-ons</label>
+                            <button type="button" wire:click="addAddonRow"
+                                    class="text-[0.62rem] text-[var(--ui-primary)] hover:underline flex items-center gap-1">
+                                @svg('heroicon-o-plus', 'w-3 h-3')
+                                Zeile hinzufügen
+                            </button>
+                        </div>
+                        @if(empty($addonRows))
+                            <p class="text-[0.62rem] text-[var(--ui-muted)]">Noch keine Add-ons gepflegt.</p>
+                        @else
+                            <div class="space-y-1.5">
+                                @foreach($addonRows as $i => $row)
+                                    <div class="grid grid-cols-[1fr_120px_140px_auto_auto] gap-2 items-center" wire:key="addon-{{ $i }}">
+                                        <input wire:model="addonRows.{{ $i }}.label" type="text" placeholder="z.B. Heizung"
+                                               class="w-full border border-[var(--ui-border)] rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/30">
+                                        <input wire:model="addonRows.{{ $i }}.price_net" type="number" step="0.01" min="0" placeholder="Preis €"
+                                               class="w-full border border-[var(--ui-border)] rounded-md px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/30">
+                                        <select wire:model="addonRows.{{ $i }}.unit"
+                                                class="w-full border border-[var(--ui-border)] rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/30">
+                                            <option value="pro_tag">pro Tag</option>
+                                            <option value="pro_va_tag">pro VA-Tag</option>
+                                            <option value="einmalig">einmalig</option>
+                                            <option value="pro_stueck">pro Stück</option>
+                                        </select>
+                                        <label class="flex items-center gap-1 text-[0.62rem] text-[var(--ui-secondary)] cursor-pointer select-none">
+                                            <input wire:model="addonRows.{{ $i }}.is_active" type="checkbox"
+                                                   class="w-3.5 h-3.5 accent-[var(--ui-primary)]">
+                                            aktiv
+                                        </label>
+                                        <button type="button" wire:click="removeAddonRow({{ $i }})"
+                                                class="text-[0.62rem] text-red-600 hover:bg-red-50 rounded p-1.5">
+                                            @svg('heroicon-o-trash', 'w-3.5 h-3.5')
+                                        </button>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+                @endif
 
                 {{-- ===== Grundriss (S3, ohne DB) ===== --}}
                 @if($editingId)

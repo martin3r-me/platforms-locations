@@ -3,12 +3,16 @@
 namespace Platform\Locations\Livewire;
 
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use Platform\Locations\Models\Location;
+use Platform\Locations\Models\LocationAddon;
+use Platform\Locations\Models\LocationPricing;
+use Platform\Locations\Models\LocationSeatingOption;
 
 class Manage extends Component
 {
@@ -55,6 +59,34 @@ class Manage extends Component
     /** @var array<int,array<string,mixed>> */
     public array $addressSuggestions = [];
 
+    // ==== Erweiterte Stammdaten ====
+
+    #[Validate('nullable|numeric|min:0|max:999999.99')]
+    public ?float $groesse_qm = null;
+
+    #[Validate('nullable|string|max:30')]
+    public ?string $hallennummer = null;
+
+    public bool $barrierefrei = false;
+
+    #[Validate('nullable|string|max:5000')]
+    public ?string $besonderheit = null;
+
+    /** Komma-getrennte Eingabe; gespeichert als JSON-Array */
+    #[Validate('nullable|string|max:1000')]
+    public ?string $anlaesseInput = null;
+
+    // ==== Sub-Sections (Inline-Edit pro Location, nur im Edit-Modus sichtbar) ====
+
+    /** @var array<int,array{id:?int,uuid:?string,label:string,pax_max_ca:?int,sort_order:int,_dirty:bool}> */
+    public array $seatingRows = [];
+
+    /** @var array<int,array{id:?int,uuid:?string,day_type_label:string,price_net:?string,label:?string,sort_order:int,_dirty:bool}> */
+    public array $pricingRows = [];
+
+    /** @var array<int,array{id:?int,uuid:?string,label:string,price_net:?string,unit:string,is_active:bool,sort_order:int,_dirty:bool}> */
+    public array $addonRows = [];
+
     public function openCreate(): void
     {
         $this->resetForm();
@@ -78,7 +110,14 @@ class Manage extends Component
         $this->longitude        = $location->longitude !== null ? (float) $location->longitude : null;
         $this->addressSuggestions = [];
 
+        $this->groesse_qm    = $location->groesse_qm !== null ? (float) $location->groesse_qm : null;
+        $this->hallennummer  = $location->hallennummer;
+        $this->barrierefrei  = (bool) $location->barrierefrei;
+        $this->besonderheit  = $location->besonderheit;
+        $this->anlaesseInput = is_array($location->anlaesse) ? implode(', ', $location->anlaesse) : null;
+
         $this->refreshGrundrissState($location->uuid);
+        $this->loadSubRows($location);
 
         $this->resetErrorBag();
         $this->showModal = true;
@@ -97,6 +136,8 @@ class Manage extends Component
             'pax_min', 'pax_max', 'mehrfachbelegung',
             'adresse', 'latitude', 'longitude', 'addressSuggestions',
             'grundriss', 'uploadingGrundriss', 'grundrissPath', 'grundrissFileName',
+            'groesse_qm', 'hallennummer', 'barrierefrei', 'besonderheit', 'anlaesseInput',
+            'seatingRows', 'pricingRows', 'addonRows',
         ]);
         $this->resetErrorBag();
     }
@@ -185,15 +226,41 @@ class Manage extends Component
         $user = Auth::user();
         $team = $user->currentTeam;
 
-        if ($this->editingId) {
-            $location = Location::where('team_id', $team->id)->where('uuid', $this->editingId)->firstOrFail();
-            $location->update($data);
-        } else {
-            $data['team_id']    = $team->id;
-            $data['user_id']    = $user->id;
-            $data['sort_order'] = (Location::where('team_id', $team->id)->max('sort_order') ?? 0) + 1;
-            Location::create($data);
+        // anlaesseInput (Komma-Liste) in JSON-Array umwandeln; leere Strings filtern
+        $anlaesse = null;
+        if (is_string($this->anlaesseInput) && trim($this->anlaesseInput) !== '') {
+            $anlaesse = collect(explode(',', $this->anlaesseInput))
+                ->map(fn ($s) => trim((string) $s))
+                ->filter(fn ($s) => $s !== '')
+                ->values()
+                ->all();
+            if ($anlaesse === []) {
+                $anlaesse = null;
+            }
         }
+
+        // anlaesseInput aus dem $data-Array entfernen (gehoert nicht ins Model) und durch das Array ersetzen
+        unset($data['anlaesseInput']);
+        $data['anlaesse'] = $anlaesse;
+
+        DB::transaction(function () use ($data, $team, $user) {
+            if ($this->editingId) {
+                $location = Location::where('team_id', $team->id)->where('uuid', $this->editingId)->firstOrFail();
+                $location->update($data);
+            } else {
+                $data['team_id']    = $team->id;
+                $data['user_id']    = $user->id;
+                $data['sort_order'] = (Location::where('team_id', $team->id)->max('sort_order') ?? 0) + 1;
+                $location = Location::create($data);
+            }
+
+            // Sub-Sections nur im Edit-Modus persistieren (Create-Modal hat keine Sub-Tabellen-Inputs)
+            if ($this->editingId) {
+                $this->persistSeatingRows($location);
+                $this->persistPricingRows($location);
+                $this->persistAddonRows($location);
+            }
+        });
 
         $this->showModal = false;
         $this->resetForm();
@@ -353,6 +420,204 @@ class Manage extends Component
             return $disk->url($this->grundrissPath);
         } catch (\Throwable $e) {
             return null;
+        }
+    }
+
+    // ================= Sub-Sections (Bestuhlung / Pricing / Add-ons) =================
+
+    protected function loadSubRows(Location $location): void
+    {
+        $this->seatingRows = $location->seatingOptions->map(fn (LocationSeatingOption $r) => [
+            'id'         => $r->id,
+            'uuid'       => $r->uuid,
+            'label'      => (string) $r->label,
+            'pax_max_ca' => (int) $r->pax_max_ca,
+            'sort_order' => (int) $r->sort_order,
+            '_dirty'     => false,
+        ])->values()->all();
+
+        $this->pricingRows = $location->pricings->map(fn (LocationPricing $r) => [
+            'id'             => $r->id,
+            'uuid'           => $r->uuid,
+            'day_type_label' => (string) $r->day_type_label,
+            'price_net'      => $r->price_net !== null ? (string) $r->price_net : null,
+            'label'          => $r->label,
+            'sort_order'     => (int) $r->sort_order,
+            '_dirty'         => false,
+        ])->values()->all();
+
+        $this->addonRows = $location->addons->map(fn (LocationAddon $r) => [
+            'id'         => $r->id,
+            'uuid'       => $r->uuid,
+            'label'      => (string) $r->label,
+            'price_net'  => $r->price_net !== null ? (string) $r->price_net : null,
+            'unit'       => (string) ($r->unit ?: LocationAddon::UNIT_PRO_TAG),
+            'is_active'  => (bool) $r->is_active,
+            'sort_order' => (int) $r->sort_order,
+            '_dirty'     => false,
+        ])->values()->all();
+    }
+
+    public function addSeatingRow(): void
+    {
+        $next = $this->seatingRows ? max(array_column($this->seatingRows, 'sort_order')) + 1 : 1;
+        $this->seatingRows[] = [
+            'id'         => null,
+            'uuid'       => null,
+            'label'      => '',
+            'pax_max_ca' => 0,
+            'sort_order' => $next,
+            '_dirty'     => true,
+        ];
+    }
+
+    public function removeSeatingRow(int $index): void
+    {
+        if (!isset($this->seatingRows[$index])) {
+            return;
+        }
+        $row = $this->seatingRows[$index];
+        if ($row['id']) {
+            LocationSeatingOption::whereKey($row['id'])->delete(); // SoftDelete
+        }
+        unset($this->seatingRows[$index]);
+        $this->seatingRows = array_values($this->seatingRows);
+    }
+
+    public function addPricingRow(): void
+    {
+        $next = $this->pricingRows ? max(array_column($this->pricingRows, 'sort_order')) + 1 : 1;
+        $this->pricingRows[] = [
+            'id'             => null,
+            'uuid'           => null,
+            'day_type_label' => '',
+            'price_net'      => null,
+            'label'          => null,
+            'sort_order'     => $next,
+            '_dirty'         => true,
+        ];
+    }
+
+    public function removePricingRow(int $index): void
+    {
+        if (!isset($this->pricingRows[$index])) {
+            return;
+        }
+        $row = $this->pricingRows[$index];
+        if ($row['id']) {
+            LocationPricing::whereKey($row['id'])->delete();
+        }
+        unset($this->pricingRows[$index]);
+        $this->pricingRows = array_values($this->pricingRows);
+    }
+
+    public function addAddonRow(): void
+    {
+        $next = $this->addonRows ? max(array_column($this->addonRows, 'sort_order')) + 1 : 1;
+        $this->addonRows[] = [
+            'id'         => null,
+            'uuid'       => null,
+            'label'      => '',
+            'price_net'  => null,
+            'unit'       => LocationAddon::UNIT_PRO_TAG,
+            'is_active'  => true,
+            'sort_order' => $next,
+            '_dirty'     => true,
+        ];
+    }
+
+    public function removeAddonRow(int $index): void
+    {
+        if (!isset($this->addonRows[$index])) {
+            return;
+        }
+        $row = $this->addonRows[$index];
+        if ($row['id']) {
+            LocationAddon::whereKey($row['id'])->delete();
+        }
+        unset($this->addonRows[$index]);
+        $this->addonRows = array_values($this->addonRows);
+    }
+
+    protected function persistSeatingRows(Location $location): void
+    {
+        foreach ($this->seatingRows as $row) {
+            $label = trim((string) ($row['label'] ?? ''));
+            $pax   = (int) ($row['pax_max_ca'] ?? 0);
+            if ($label === '' && $pax === 0 && empty($row['id'])) {
+                continue; // leere neue Zeile ignorieren
+            }
+            if ($label === '') {
+                continue;
+            }
+            $payload = [
+                'location_id' => $location->id,
+                'label'       => $label,
+                'pax_max_ca'  => max(0, $pax),
+                'sort_order'  => (int) ($row['sort_order'] ?? 0),
+            ];
+            if (!empty($row['id'])) {
+                LocationSeatingOption::whereKey($row['id'])->update($payload);
+            } else {
+                LocationSeatingOption::create($payload);
+            }
+        }
+    }
+
+    protected function persistPricingRows(Location $location): void
+    {
+        foreach ($this->pricingRows as $row) {
+            $dayType = trim((string) ($row['day_type_label'] ?? ''));
+            $price   = $row['price_net'] !== null && $row['price_net'] !== '' ? (float) $row['price_net'] : null;
+            if ($dayType === '' && $price === null && empty($row['id'])) {
+                continue;
+            }
+            if ($dayType === '' || $price === null) {
+                continue;
+            }
+            $payload = [
+                'location_id'    => $location->id,
+                'day_type_label' => $dayType,
+                'price_net'      => $price,
+                'label'          => $row['label'] !== null && $row['label'] !== '' ? (string) $row['label'] : null,
+                'sort_order'     => (int) ($row['sort_order'] ?? 0),
+            ];
+            if (!empty($row['id'])) {
+                LocationPricing::whereKey($row['id'])->update($payload);
+            } else {
+                LocationPricing::create($payload);
+            }
+        }
+    }
+
+    protected function persistAddonRows(Location $location): void
+    {
+        foreach ($this->addonRows as $row) {
+            $label = trim((string) ($row['label'] ?? ''));
+            $price = $row['price_net'] !== null && $row['price_net'] !== '' ? (float) $row['price_net'] : null;
+            $unit  = (string) ($row['unit'] ?? LocationAddon::UNIT_PRO_TAG);
+            if (!in_array($unit, LocationAddon::UNITS, true)) {
+                $unit = LocationAddon::UNIT_PRO_TAG;
+            }
+            if ($label === '' && $price === null && empty($row['id'])) {
+                continue;
+            }
+            if ($label === '' || $price === null) {
+                continue;
+            }
+            $payload = [
+                'location_id' => $location->id,
+                'label'       => $label,
+                'price_net'   => $price,
+                'unit'        => $unit,
+                'is_active'   => (bool) ($row['is_active'] ?? true),
+                'sort_order'  => (int) ($row['sort_order'] ?? 0),
+            ];
+            if (!empty($row['id'])) {
+                LocationAddon::whereKey($row['id'])->update($payload);
+            } else {
+                LocationAddon::create($payload);
+            }
         }
     }
 
