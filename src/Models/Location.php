@@ -37,6 +37,7 @@ class Location extends Model
         'hallennummer',
         'barrierefrei',
         'besonderheit',
+        'beschreibung',
         'anlaesse',
     ];
 

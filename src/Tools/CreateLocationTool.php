@@ -24,7 +24,7 @@ class CreateLocationTool implements ToolContract, ToolMetadataContract
 
     public function getDescription(): string
     {
-        return 'POST /locations - Erstellt eine neue Location. REST-Parameter: name (required), kuerzel (required, max 20), team_id (optional), gruppe (optional), pax_min (optional), pax_max (optional, gemeint als max inkl. Personal), mehrfachbelegung (optional, default false), adresse (optional), groesse_qm (optional, decimal), hallennummer (optional), barrierefrei (optional, boolean, default false), besonderheit (optional, string), anlaesse (optional, array of strings z.B. ["Hochzeit","Firmenfeier"]).';
+        return 'POST /locations - Erstellt eine neue Location. REST-Parameter: name (required), kuerzel (required, max 20), team_id (optional), gruppe (optional), pax_min (optional), pax_max (optional, gemeint als max inkl. Personal), mehrfachbelegung (optional, default false), adresse (optional), groesse_qm (optional, decimal), hallennummer (optional), barrierefrei (optional, boolean, default false), besonderheit (optional, kurze Hervorhebung), beschreibung (optional, langer Fließtext für Marketing/Historie/Kundeninfo), anlaesse (optional, array of strings z.B. ["Hochzeit","Firmenfeier"]).';
     }
 
     public function getSchema(): array
@@ -78,7 +78,11 @@ class CreateLocationTool implements ToolContract, ToolMetadataContract
                 ],
                 'besonderheit' => [
                     'type' => 'string',
-                    'description' => 'Optional: Besonderheiten (Freitext, z.B. "3 verfahrbare Kronleuchter").',
+                    'description' => 'Optional: kurze Besonderheits-Hervorhebung (1-2 Saetze, z.B. "3 verfahrbare Kronleuchter").',
+                ],
+                'beschreibung' => [
+                    'type' => 'string',
+                    'description' => 'Optional: laengerer Beschreibungstext fuer Marketing / Historie / Kundeninfo. Fliesstext, kann mehrere Absaetze haben (max 65000 Zeichen).',
                 ],
                 'anlaesse' => [
                     'type' => 'array',
@@ -147,6 +151,7 @@ class CreateLocationTool implements ToolContract, ToolMetadataContract
                 'hallennummer'     => isset($arguments['hallennummer']) ? mb_substr((string) $arguments['hallennummer'], 0, 30) : null,
                 'barrierefrei'     => (bool) ($arguments['barrierefrei'] ?? false),
                 'besonderheit'     => $arguments['besonderheit'] ?? null,
+                'beschreibung'     => $arguments['beschreibung'] ?? null,
                 'anlaesse'         => $anlaesse,
                 'sort_order'       => $maxSort + 1,
             ]);
@@ -165,6 +170,7 @@ class CreateLocationTool implements ToolContract, ToolMetadataContract
                 'hallennummer'     => $location->hallennummer,
                 'barrierefrei'     => (bool) $location->barrierefrei,
                 'besonderheit'     => $location->besonderheit,
+                'beschreibung'     => $location->beschreibung,
                 'anlaesse'         => $location->anlaesse,
                 'sort_order'       => $location->sort_order,
                 'team_id'          => $location->team_id,

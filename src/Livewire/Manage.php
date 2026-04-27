@@ -73,6 +73,9 @@ class Manage extends Component
     #[Validate('nullable|string|max:5000')]
     public ?string $besonderheit = null;
 
+    #[Validate('nullable|string|max:65000')]
+    public ?string $beschreibung = null;
+
     /** Komma-getrennte Eingabe; gespeichert als JSON-Array */
     #[Validate('nullable|string|max:1000')]
     public ?string $anlaesseInput = null;
@@ -150,6 +153,7 @@ class Manage extends Component
         $this->hallennummer  = $location->hallennummer;
         $this->barrierefrei  = (bool) $location->barrierefrei;
         $this->besonderheit  = $location->besonderheit;
+        $this->beschreibung  = $location->beschreibung;
         $this->anlaesseInput = is_array($location->anlaesse) ? implode(', ', $location->anlaesse) : null;
 
         $this->refreshGrundrissState($location->uuid);
@@ -173,7 +177,7 @@ class Manage extends Component
             'pax_min', 'pax_max', 'mehrfachbelegung',
             'adresse', 'latitude', 'longitude', 'addressSuggestions',
             'grundriss', 'uploadingGrundriss', 'grundrissPath', 'grundrissFileName',
-            'groesse_qm', 'hallennummer', 'barrierefrei', 'besonderheit', 'anlaesseInput',
+            'groesse_qm', 'hallennummer', 'barrierefrei', 'besonderheit', 'beschreibung', 'anlaesseInput',
             'seatingRows', 'pricingRows', 'addonRows',
             'newBuffetFiles', 'newSeatingPlanFiles',
             'newPhotosWithSeatingFiles', 'newPhotosEmptyFiles',

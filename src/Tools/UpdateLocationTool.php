@@ -20,7 +20,7 @@ class UpdateLocationTool implements ToolContract, ToolMetadataContract
 
     public function getDescription(): string
     {
-        return 'PATCH /locations/{id} - Aktualisiert eine Location. REST-Parameter: location_id (integer) ODER uuid (string) - mindestens einer. Übrige Felder optional: name, kuerzel, gruppe, pax_min, pax_max (max inkl. Personal), mehrfachbelegung, adresse, sort_order, groesse_qm, hallennummer, barrierefrei, besonderheit, anlaesse (Array). Nur übergebene Werte werden geändert.';
+        return 'PATCH /locations/{id} - Aktualisiert eine Location. REST-Parameter: location_id (integer) ODER uuid (string) - mindestens einer. Übrige Felder optional: name, kuerzel, gruppe, pax_min, pax_max (max inkl. Personal), mehrfachbelegung, adresse, sort_order, groesse_qm, hallennummer, barrierefrei, besonderheit (kurz), beschreibung (langer Marketing-/Historie-Fließtext), anlaesse (Array). Nur übergebene Werte werden geändert.';
     }
 
     public function getSchema(): array
@@ -47,7 +47,8 @@ class UpdateLocationTool implements ToolContract, ToolMetadataContract
                 'groesse_qm' => ['type' => 'number', 'description' => 'Optional: Größe in qm.'],
                 'hallennummer' => ['type' => 'string', 'description' => 'Optional: Hallennummer (max. 30).'],
                 'barrierefrei' => ['type' => 'boolean', 'description' => 'Optional: Barrierefrei.'],
-                'besonderheit' => ['type' => 'string', 'description' => 'Optional: Besonderheit (Freitext).'],
+                'besonderheit' => ['type' => 'string', 'description' => 'Optional: kurze Besonderheits-Hervorhebung (Freitext, 1-2 Saetze).'],
+                'beschreibung' => ['type' => 'string', 'description' => 'Optional: laengerer Beschreibungstext fuer Marketing/Historie/Kundeninfo.'],
                 'anlaesse' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'Optional: Neue Liste der Anlässe (überschreibt vorherige).'],
             ],
         ];
@@ -80,7 +81,7 @@ class UpdateLocationTool implements ToolContract, ToolMetadataContract
             }
 
             $update = [];
-            foreach (['name', 'gruppe', 'adresse', 'besonderheit'] as $field) {
+            foreach (['name', 'gruppe', 'adresse', 'besonderheit', 'beschreibung'] as $field) {
                 if (array_key_exists($field, $arguments)) {
                     $update[$field] = $arguments[$field];
                 }
@@ -145,6 +146,7 @@ class UpdateLocationTool implements ToolContract, ToolMetadataContract
                 'hallennummer'     => $location->hallennummer,
                 'barrierefrei'     => (bool) $location->barrierefrei,
                 'besonderheit'     => $location->besonderheit,
+                'beschreibung'     => $location->beschreibung,
                 'anlaesse'         => $location->anlaesse,
                 'team_id'          => $location->team_id,
                 'message'          => "Location '{$location->name}' erfolgreich aktualisiert.",

@@ -184,6 +184,15 @@
                     <label class="text-[0.65rem] font-semibold text-[var(--ui-muted)] block mb-1">Besonderheit</label>
                     <textarea wire:model="besonderheit" rows="2" placeholder="z.B. 3 verfahrbare Kronleuchter"
                               class="w-full border border-[var(--ui-border)] rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/30"></textarea>
+                    <p class="mt-1 text-[0.62rem] text-[var(--ui-muted)]">Kurze, prägnante Hervorhebung (1–2 Sätze).</p>
+                </div>
+
+                <div>
+                    <label class="text-[0.65rem] font-semibold text-[var(--ui-muted)] block mb-1">Beschreibung</label>
+                    <textarea wire:model="beschreibung" rows="6" placeholder="Längere Beschreibung der Location für Kunden — Geschichte, Charakter, Besonderheiten…"
+                              class="w-full border border-[var(--ui-border)] rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/30"></textarea>
+                    @error('beschreibung') <p class="mt-1 text-[0.62rem] text-red-600">{{ $message }}</p> @enderror
+                    <p class="mt-1 text-[0.62rem] text-[var(--ui-muted)]">Marketing-Text / Historie / Kundeninfo. Längerer Fließtext, später für Angebote, Web-Auftritt etc. nutzbar.</p>
                 </div>
 
                 <div>
