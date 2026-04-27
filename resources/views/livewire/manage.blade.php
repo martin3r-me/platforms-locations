@@ -418,10 +418,30 @@
                         @endif
 
                         <div>
-                            <input type="file"
-                                   wire:model="grundriss"
-                                   accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp"
-                                   class="w-full text-xs text-[var(--ui-secondary)] file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border file:border-[var(--ui-border)] file:bg-[var(--ui-muted-5)] file:text-[0.65rem] file:font-semibold file:text-[var(--ui-secondary)] hover:file:bg-[var(--ui-border)]/40 file:cursor-pointer">
+                            <div x-data="{ over: false }"
+                                 @dragover.prevent.stop="over = true"
+                                 @dragleave.prevent.stop="over = false"
+                                 @drop.prevent.stop="
+                                     over = false;
+                                     if (!$event.dataTransfer.files.length) return;
+                                     const dt = new DataTransfer();
+                                     dt.items.add($event.dataTransfer.files[0]);
+                                     $refs.input.files = dt.files;
+                                     $refs.input.dispatchEvent(new Event('change', { bubbles: true }));
+                                 "
+                                 @click="$refs.input.click()"
+                                 :class="over ? 'border-[var(--ui-primary)] bg-[var(--ui-primary)]/5' : 'border-[var(--ui-border)] hover:bg-[var(--ui-muted-5)]/50'"
+                                 class="border-2 border-dashed rounded-md p-3 text-center cursor-pointer transition-colors">
+                                <input type="file"
+                                       wire:model="grundriss"
+                                       x-ref="input"
+                                       accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp"
+                                       class="sr-only">
+                                <div class="flex items-center gap-2 justify-center text-[0.65rem] text-[var(--ui-muted)]">
+                                    @svg('heroicon-o-cloud-arrow-up', 'w-4 h-4')
+                                    <span>Datei hierher ziehen oder klicken</span>
+                                </div>
+                            </div>
                             <div wire:loading wire:target="grundriss,updatedGrundriss" class="mt-1 flex items-center gap-1 text-[0.62rem] text-[var(--ui-muted)]">
                                 @svg('heroicon-o-arrow-path', 'w-3 h-3 animate-spin')
                                 Upload läuft …
@@ -492,11 +512,31 @@
                             @endif
 
                             <div>
-                                <input type="file"
-                                       multiple
-                                       wire:model="{{ $sec['prop'] }}"
-                                       accept="{{ $sec['accept'] }}"
-                                       class="w-full text-xs text-[var(--ui-secondary)] file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border file:border-[var(--ui-border)] file:bg-[var(--ui-muted-5)] file:text-[0.65rem] file:font-semibold file:text-[var(--ui-secondary)] hover:file:bg-[var(--ui-border)]/40 file:cursor-pointer">
+                                <div x-data="{ over: false }"
+                                     @dragover.prevent.stop="over = true"
+                                     @dragleave.prevent.stop="over = false"
+                                     @drop.prevent.stop="
+                                         over = false;
+                                         if (!$event.dataTransfer.files.length) return;
+                                         const dt = new DataTransfer();
+                                         for (const f of $event.dataTransfer.files) dt.items.add(f);
+                                         $refs.input.files = dt.files;
+                                         $refs.input.dispatchEvent(new Event('change', { bubbles: true }));
+                                     "
+                                     @click="$refs.input.click()"
+                                     :class="over ? 'border-[var(--ui-primary)] bg-[var(--ui-primary)]/5' : 'border-[var(--ui-border)] hover:bg-[var(--ui-muted-5)]/50'"
+                                     class="border-2 border-dashed rounded-md p-3 text-center cursor-pointer transition-colors">
+                                    <input type="file"
+                                           multiple
+                                           wire:model="{{ $sec['prop'] }}"
+                                           x-ref="input"
+                                           accept="{{ $sec['accept'] }}"
+                                           class="sr-only">
+                                    <div class="flex items-center gap-2 justify-center text-[0.65rem] text-[var(--ui-muted)]">
+                                        @svg('heroicon-o-cloud-arrow-up', 'w-4 h-4')
+                                        <span>Dateien hierher ziehen oder klicken (Mehrfachauswahl)</span>
+                                    </div>
+                                </div>
                                 <div wire:loading wire:target="{{ $sec['prop'] }}" class="mt-1 flex items-center gap-1 text-[0.62rem] text-[var(--ui-muted)]">
                                     @svg('heroicon-o-arrow-path', 'w-3 h-3 animate-spin')
                                     Upload läuft …
