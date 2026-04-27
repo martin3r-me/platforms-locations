@@ -432,6 +432,78 @@
                     </div>
                 @endif
 
+                {{-- ===== Weitere Asset-Kategorien (S3, Multi, ohne DB) ===== --}}
+                @if($editingId)
+                    @php
+                        $assetSections = [
+                            ['cat' => 'buffet',              'label' => 'Buffetstationen',         'prop' => 'newBuffetFiles',           'accept' => '.pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp', 'hint' => 'PDF, PNG, JPG oder WEBP, max. 20 MB pro Datei. Mehrfachauswahl möglich.'],
+                            ['cat' => 'seating_plans',       'label' => 'Bestuhlungspläne',        'prop' => 'newSeatingPlanFiles',      'accept' => '.pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp', 'hint' => 'PDF, PNG, JPG oder WEBP, max. 20 MB pro Datei.'],
+                            ['cat' => 'photos_with_seating', 'label' => 'Fotos mit Bestuhlung',    'prop' => 'newPhotosWithSeatingFiles','accept' => '.png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp',                       'hint' => 'PNG, JPG oder WEBP, max. 15 MB pro Foto.'],
+                            ['cat' => 'photos_empty',        'label' => 'Fotos der leeren Location','prop' => 'newPhotosEmptyFiles',     'accept' => '.png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp',                       'hint' => 'PNG, JPG oder WEBP, max. 15 MB pro Foto.'],
+                        ];
+                    @endphp
+
+                    @foreach($assetSections as $sec)
+                        @php $files = $assetFiles[$sec['cat']] ?? []; @endphp
+                        <div class="space-y-2 pt-2 border-t border-[var(--ui-border)]">
+                            <div class="flex items-center justify-between">
+                                <label class="text-[0.65rem] font-semibold text-[var(--ui-muted)]">{{ $sec['label'] }}</label>
+                                <span class="text-[0.6rem] font-mono text-[var(--ui-muted)]">{{ count($files) }} hinterlegt</span>
+                            </div>
+
+                            @if(!empty($files))
+                                <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                    @foreach($files as $f)
+                                        <div class="border border-[var(--ui-border)] rounded-md overflow-hidden bg-[var(--ui-muted-5)]">
+                                            @if($f['is_image'] && $f['url'])
+                                                <a href="{{ $f['url'] }}" target="_blank" rel="noopener" class="block bg-white">
+                                                    <img src="{{ $f['url'] }}" alt="{{ $f['filename'] }}"
+                                                         class="w-full h-24 object-cover hover:opacity-90 transition-opacity">
+                                                </a>
+                                            @else
+                                                <div class="flex items-center justify-center h-24 bg-white text-[var(--ui-muted)]">
+                                                    @svg('heroicon-o-document', 'w-8 h-8')
+                                                </div>
+                                            @endif
+                                            <div class="p-1.5 flex items-center gap-1 text-[0.6rem]">
+                                                @if($f['url'])
+                                                    <a href="{{ $f['url'] }}" target="_blank" rel="noopener"
+                                                       class="text-[var(--ui-primary)] hover:underline truncate flex-1"
+                                                       title="{{ $f['filename'] }}">
+                                                        {{ $f['filename'] }}
+                                                    </a>
+                                                @else
+                                                    <span class="truncate flex-1 text-[var(--ui-muted)]">{{ $f['filename'] }}</span>
+                                                @endif
+                                                <button type="button"
+                                                        wire:click="deleteAssetFile('{{ $sec['cat'] }}', '{{ $f['filename'] }}')"
+                                                        wire:confirm="Datei „{{ $f['filename'] }}" wirklich entfernen?"
+                                                        class="text-red-600 hover:bg-red-50 rounded p-1">
+                                                    @svg('heroicon-o-trash', 'w-3 h-3')
+                                                </button>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @endif
+
+                            <div>
+                                <input type="file"
+                                       multiple
+                                       wire:model="{{ $sec['prop'] }}"
+                                       accept="{{ $sec['accept'] }}"
+                                       class="w-full text-xs text-[var(--ui-secondary)] file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border file:border-[var(--ui-border)] file:bg-[var(--ui-muted-5)] file:text-[0.65rem] file:font-semibold file:text-[var(--ui-secondary)] hover:file:bg-[var(--ui-border)]/40 file:cursor-pointer">
+                                <div wire:loading wire:target="{{ $sec['prop'] }}" class="mt-1 flex items-center gap-1 text-[0.62rem] text-[var(--ui-muted)]">
+                                    @svg('heroicon-o-arrow-path', 'w-3 h-3 animate-spin')
+                                    Upload läuft …
+                                </div>
+                                @error($sec['prop']) <p class="mt-1 text-[0.62rem] text-red-600">{{ $message }}</p> @enderror
+                                <p class="mt-1 text-[0.62rem] text-[var(--ui-muted)]">{{ $sec['hint'] }}</p>
+                            </div>
+                        </div>
+                    @endforeach
+                @endif
+
                 <div class="flex justify-end gap-2 pt-4 border-t border-[var(--ui-border)]">
                     <x-ui-button type="button" variant="secondary-outline" size="sm" wire:click="closeModal">
                         Abbrechen

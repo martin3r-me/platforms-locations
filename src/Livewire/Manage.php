@@ -13,6 +13,7 @@ use Platform\Locations\Models\Location;
 use Platform\Locations\Models\LocationAddon;
 use Platform\Locations\Models\LocationPricing;
 use Platform\Locations\Models\LocationSeatingOption;
+use Platform\Locations\Services\LocationAssetService;
 
 class Manage extends Component
 {
@@ -87,6 +88,30 @@ class Manage extends Component
     /** @var array<int,array{id:?int,uuid:?string,label:string,price_net:?string,unit:string,is_active:bool,sort_order:int,_dirty:bool}> */
     public array $addonRows = [];
 
+    // ==== Asset-Uploads (Multi pro Kategorie, S3, ohne DB) ====
+
+    /** @var array<int, \Livewire\Features\SupportFileUploads\TemporaryUploadedFile> */
+    public array $newBuffetFiles = [];
+
+    /** @var array<int, \Livewire\Features\SupportFileUploads\TemporaryUploadedFile> */
+    public array $newSeatingPlanFiles = [];
+
+    /** @var array<int, \Livewire\Features\SupportFileUploads\TemporaryUploadedFile> */
+    public array $newPhotosWithSeatingFiles = [];
+
+    /** @var array<int, \Livewire\Features\SupportFileUploads\TemporaryUploadedFile> */
+    public array $newPhotosEmptyFiles = [];
+
+    public bool $uploadingAssets = false;
+
+    /**
+     * Cache der aktuell hinterlegten Asset-Dateien je Kategorie. Wird im
+     * openEdit() befuellt und nach jedem Upload/Delete refreshed.
+     *
+     * @var array<string, array<int, array{path:string, filename:string, size:int, mime:string, url:?string, is_image:bool, is_pdf:bool, extension:string}>>
+     */
+    public array $assetFiles = [];
+
     public function openCreate(): void
     {
         $this->resetForm();
@@ -118,6 +143,7 @@ class Manage extends Component
 
         $this->refreshGrundrissState($location->uuid);
         $this->loadSubRows($location);
+        $this->refreshAssetFiles($location);
 
         $this->resetErrorBag();
         $this->showModal = true;
@@ -138,6 +164,9 @@ class Manage extends Component
             'grundriss', 'uploadingGrundriss', 'grundrissPath', 'grundrissFileName',
             'groesse_qm', 'hallennummer', 'barrierefrei', 'besonderheit', 'anlaesseInput',
             'seatingRows', 'pricingRows', 'addonRows',
+            'newBuffetFiles', 'newSeatingPlanFiles',
+            'newPhotosWithSeatingFiles', 'newPhotosEmptyFiles',
+            'uploadingAssets', 'assetFiles',
         ]);
         $this->resetErrorBag();
     }
@@ -587,6 +616,97 @@ class Manage extends Component
             } else {
                 LocationPricing::create($payload);
             }
+        }
+    }
+
+    // ================= Asset-Uploads (S3, ohne DB) =================
+
+    public function updatedNewBuffetFiles(): void
+    {
+        $this->processAssetUploads(LocationAssetService::CATEGORY_BUFFET, 'newBuffetFiles');
+    }
+
+    public function updatedNewSeatingPlanFiles(): void
+    {
+        $this->processAssetUploads(LocationAssetService::CATEGORY_SEATING_PLANS, 'newSeatingPlanFiles');
+    }
+
+    public function updatedNewPhotosWithSeatingFiles(): void
+    {
+        $this->processAssetUploads(LocationAssetService::CATEGORY_PHOTOS_WITH_SEATS, 'newPhotosWithSeatingFiles');
+    }
+
+    public function updatedNewPhotosEmptyFiles(): void
+    {
+        $this->processAssetUploads(LocationAssetService::CATEGORY_PHOTOS_EMPTY, 'newPhotosEmptyFiles');
+    }
+
+    protected function processAssetUploads(string $category, string $property): void
+    {
+        if (!$this->editingId) {
+            $this->{$property} = [];
+            return;
+        }
+
+        $files = $this->{$property};
+        if (!is_array($files) || empty($files)) {
+            return;
+        }
+
+        $team = Auth::user()->currentTeam;
+        $location = Location::where('team_id', $team->id)->where('uuid', $this->editingId)->first();
+        if (!$location) {
+            $this->{$property} = [];
+            return;
+        }
+
+        $service = app(LocationAssetService::class);
+        $cfg = LocationAssetService::categoryConfig($category);
+
+        $this->uploadingAssets = true;
+        try {
+            foreach ($files as $file) {
+                if (!$file) continue;
+                try {
+                    $service->upload($location, $category, $file);
+                } catch (\InvalidArgumentException $e) {
+                    $this->addError($property, "[{$cfg['label']}] " . $e->getMessage());
+                } catch (\Throwable $e) {
+                    \Log::error('[Locations] Asset-Upload fehlgeschlagen', [
+                        'category' => $category,
+                        'error'    => $e->getMessage(),
+                        'location_uuid' => $location->uuid,
+                    ]);
+                    $this->addError($property, "[{$cfg['label']}] Upload fehlgeschlagen: " . $e->getMessage());
+                }
+            }
+        } finally {
+            $this->{$property} = [];
+            $this->uploadingAssets = false;
+            $this->refreshAssetFiles($location);
+        }
+    }
+
+    public function deleteAssetFile(string $category, string $filename): void
+    {
+        if (!$this->editingId) return;
+        if (!LocationAssetService::isValidCategory($category)) return;
+
+        $team = Auth::user()->currentTeam;
+        $location = Location::where('team_id', $team->id)->where('uuid', $this->editingId)->firstOrFail();
+
+        $service = app(LocationAssetService::class);
+        $service->delete($location, $category, $filename);
+
+        $this->refreshAssetFiles($location);
+    }
+
+    protected function refreshAssetFiles(Location $location): void
+    {
+        $service = app(LocationAssetService::class);
+        $this->assetFiles = [];
+        foreach (array_keys(LocationAssetService::categories()) as $cat) {
+            $this->assetFiles[$cat] = $service->listFiles($location, $cat)->all();
         }
     }
 
