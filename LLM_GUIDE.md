@@ -75,6 +75,32 @@ $location->activeAddons();          // Collection
 
 Das Locations-Modul kennt das Events-Modul nicht. Die Audit-Tabelle für die Anwendung liegt in Events (`events_location_pricing_applications`).
 
+## Asset-Kategorien (Multi-Datei, S3, ohne DB)
+
+Pro Location lassen sich neben dem Grundriss vier weitere Asset-Kategorien hinterlegen, alle ohne DB-Eintrag direkt im Storage. Service: `Platform\Locations\Services\LocationAssetService`.
+
+| Key | Label | Multi | Endungen | Max |
+|---|---|---|---|---|
+| `buffet` | Buffetstationen | ja | pdf, png, jpg, webp | 20 MB |
+| `seating_plans` | Bestuhlungsplaene | ja | pdf, png, jpg, webp | 20 MB |
+| `photos_with_seating` | Fotos mit Bestuhlung | ja | png, jpg, webp | 15 MB |
+| `photos_empty` | Fotos der leeren Location | png, jpg, webp | 15 MB |
+
+Pfadschema: `locations/{uuid}/{slug}/{token}.{ext}` (Slug aus `LocationAssetService::categories()[$key]['slug']`). Disk-Wahl identisch zum Grundriss (S3 wenn konfiguriert, sonst default).
+
+**Public Model API auf `Location`:**
+
+```php
+$loc->assetCategories();      // statisch: Konfig aller Kategorien
+$loc->assetFiles($category);  // Collection von [path, filename, size, mime, url, is_image, is_pdf, extension]
+$loc->buffetFiles();
+$loc->seatingPlanFiles();
+$loc->photosWithSeating();
+$loc->photosEmpty();
+```
+
+**Wichtig:** Der **Grundriss** laeuft weiterhin separat ueber `floorPlan*()` und den eigenen Pfad `locations/grundrisse/{uuid}/grundriss.{ext}` — bewusst nicht migriert, damit bestehende Konsumenten (Events `PdfFloorPlanMerger`, Quote-PDF) unveraendert weiterlaufen.
+
 ## Grundriss-Upload (S3, ohne DB)
 
 Locations können einen Grundriss (PDF/PNG/JPG/WEBP, max. 20 MB) zugeordnet bekommen. Die Datei liegt ausschließlich im Storage – **kein** DB-Eintrag, kein ContextFile.
@@ -107,6 +133,9 @@ Tools werden in `LocationsServiceProvider::registerTools()` an `Platform\Core\To
 | `locations.pricings.GET/POST/PATCH/DELETE` | je `*LocationPricingTool` / `ListLocationPricingsTool` | Mietpreise pro Tag-Typ |
 | `locations.seating-options.GET/POST/PATCH/DELETE` | je `*LocationSeatingOptionTool` / `ListLocationSeatingOptionsTool` | Bestuhlungs-Hinweise |
 | `locations.addons.GET/POST/PATCH/DELETE` | je `*LocationAddonTool` / `ListLocationAddonsTool` | Optionale Add-ons |
+| `locations.asset-categories.GET` | `GetLocationAssetCategoriesTool` | Discovery: erlaubte Asset-Kategorien |
+| `locations.assets.GET` | `ListLocationAssetsTool` | Liste der Dateien einer Asset-Kategorie (oder aller) |
+| `locations.assets.DELETE` | `DeleteLocationAssetTool` | Asset-Datei per Filename loeschen (Upload bleibt UI-only) |
 
 Sub-Entity-Tools nutzen das `Tools\Concerns\ResolvesLocation`-Trait und akzeptieren als Eltern-Selektor `location_id` ODER `location_uuid`. `Create/UpdateLocationTool` wurden um die neuen Stamm-Felder (`groesse_qm`, `hallennummer`, `barrierefrei`, `besonderheit`, `anlaesse`) erweitert.
 

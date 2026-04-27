@@ -9,6 +9,7 @@ Location- und Raum-Stammdaten inkl. Auslastungsübersicht für die Platform.
 - **Mietpreise pro Tag-Typ** – Pricing-Sub-Tabelle mit Volltext-Match auf Events-Settings-Tagesarten (Aufbau/Abbau/VA-Tag)
 - **Optionale Add-ons** – Zusatzposten (z.B. Heizung) mit Einheit (`pro_tag`/`pro_va_tag`/`einmalig`/`pro_stueck`)
 - **Grundriss-Upload** – PDF/PNG/JPG/WEBP pro Location (S3, ohne DB-Eintrag)
+- **Weitere Location-Assets** – Buffetstationen, Bestuhlungspläne, Fotos mit Bestuhlung, Fotos der leeren Location – jeweils Multi-Upload, S3, ohne DB-Eintrag (Service `LocationAssetService`)
 - **Adress-Autocomplete + Karte** – Nominatim (OpenStreetMap) mit Leaflet-Karte und Stecknadel
 - **CRUD** via Livewire 3 + Alpine.js (Modal-basiert)
 - **Auslastungs-View** – Filter nach Zeitraum (Woche/Monat/Jahr/3 Monate) und Gruppe
