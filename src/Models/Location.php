@@ -271,4 +271,55 @@ class Location extends Model
     {
         return $this->addons()->where('is_active', true)->get();
     }
+
+    // ================= Asset-Kategorien (S3, ohne DB) =================
+    //
+    // Buffetstationen, Bestuhlungsplaene, Fotos mit / ohne Bestuhlung.
+    // Gemeinsame Implementierung in LocationAssetService — Pfadschema:
+    //   locations/{uuid}/{category-slug}/{token}.{ext}
+    //
+    // Der Grundriss laeuft weiterhin separat ueber floorPlan*() oben
+    // (eigener historischer Pfad locations/grundrisse/{uuid}/grundriss.{ext}),
+    // damit bestehende Konsumenten (Events-Angebot/PdfFloorPlanMerger)
+    // unveraendert weiterlaufen.
+
+    /**
+     * Liefert die Dateien einer Asset-Kategorie als Collection von Arrays
+     * mit path/filename/size/mime/url/extension/is_image/is_pdf.
+     */
+    public function assetFiles(string $category): Collection
+    {
+        return app(\Platform\Locations\Services\LocationAssetService::class)
+            ->listFiles($this, $category);
+    }
+
+    public function buffetFiles(): Collection
+    {
+        return $this->assetFiles(\Platform\Locations\Services\LocationAssetService::CATEGORY_BUFFET);
+    }
+
+    public function seatingPlanFiles(): Collection
+    {
+        return $this->assetFiles(\Platform\Locations\Services\LocationAssetService::CATEGORY_SEATING_PLANS);
+    }
+
+    public function photosWithSeating(): Collection
+    {
+        return $this->assetFiles(\Platform\Locations\Services\LocationAssetService::CATEGORY_PHOTOS_WITH_SEATS);
+    }
+
+    public function photosEmpty(): Collection
+    {
+        return $this->assetFiles(\Platform\Locations\Services\LocationAssetService::CATEGORY_PHOTOS_EMPTY);
+    }
+
+    /**
+     * Statisch: alle bekannten Asset-Kategorien (Slug => Konfiguration).
+     *
+     * @return array<string, array{label:string, slug:string, multi:bool, extensions:array<int,string>, max_kb:int}>
+     */
+    public static function assetCategories(): array
+    {
+        return \Platform\Locations\Services\LocationAssetService::categories();
+    }
 }
