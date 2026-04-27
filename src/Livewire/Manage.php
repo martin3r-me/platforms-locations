@@ -85,13 +85,15 @@ class Manage extends Component
     /** @var array<int,array{id:?int,uuid:?string,day_type_label:string,price_net:?string,label:?string,article_number:?string,sort_order:int,_dirty:bool}> */
     public array $pricingRows = [];
 
-    /** @var array<int,array{id:?int,uuid:?string,label:string,price_net:?string,unit:string,is_active:bool,sort_order:int,_dirty:bool}> */
+    /** @var array<int,array{id:?int,uuid:?string,label:string,price_net:?string,unit:string,article_number:?string,is_active:bool,sort_order:int,_dirty:bool}> */
     public array $addonRows = [];
 
     // ==== Article-Picker fuer Pricing-Rows (Cross-Modul Lookup zu events_articles) ====
 
     public bool $showArticlePickerModal = false;
     public ?int $articlePickerRowIndex = null;
+    /** @var 'pricing'|'addon'|null Welche Sub-Tabelle die Auswahl bekommt */
+    public ?string $articlePickerTarget = null;
     public string $articleSearchQuery = '';
 
     /** @var array<int, array{article_number:string, name:string, group_name:?string, mwst:string, vk:float, ek:float}> */
@@ -176,7 +178,7 @@ class Manage extends Component
             'newBuffetFiles', 'newSeatingPlanFiles',
             'newPhotosWithSeatingFiles', 'newPhotosEmptyFiles',
             'uploadingAssets', 'assetFiles',
-            'showArticlePickerModal', 'articlePickerRowIndex',
+            'showArticlePickerModal', 'articlePickerRowIndex', 'articlePickerTarget',
             'articleSearchQuery', 'articleSearchResults',
         ]);
         $this->resetErrorBag();
@@ -493,14 +495,15 @@ class Manage extends Component
         ])->values()->all();
 
         $this->addonRows = $location->addons->map(fn (LocationAddon $r) => [
-            'id'         => $r->id,
-            'uuid'       => $r->uuid,
-            'label'      => (string) $r->label,
-            'price_net'  => $r->price_net !== null ? (string) $r->price_net : null,
-            'unit'       => (string) ($r->unit ?: LocationAddon::UNIT_PRO_TAG),
-            'is_active'  => (bool) $r->is_active,
-            'sort_order' => (int) $r->sort_order,
-            '_dirty'     => false,
+            'id'             => $r->id,
+            'uuid'           => $r->uuid,
+            'label'          => (string) $r->label,
+            'price_net'      => $r->price_net !== null ? (string) $r->price_net : null,
+            'unit'           => (string) ($r->unit ?: LocationAddon::UNIT_PRO_TAG),
+            'article_number' => $r->article_number,
+            'is_active'      => (bool) $r->is_active,
+            'sort_order'     => (int) $r->sort_order,
+            '_dirty'         => false,
         ])->values()->all();
     }
 
@@ -562,14 +565,15 @@ class Manage extends Component
     {
         $next = $this->addonRows ? max(array_column($this->addonRows, 'sort_order')) + 1 : 1;
         $this->addonRows[] = [
-            'id'         => null,
-            'uuid'       => null,
-            'label'      => '',
-            'price_net'  => null,
-            'unit'       => LocationAddon::UNIT_PRO_TAG,
-            'is_active'  => true,
-            'sort_order' => $next,
-            '_dirty'     => true,
+            'id'             => null,
+            'uuid'           => null,
+            'label'          => '',
+            'price_net'      => null,
+            'unit'           => LocationAddon::UNIT_PRO_TAG,
+            'article_number' => null,
+            'is_active'      => true,
+            'sort_order'     => $next,
+            '_dirty'         => true,
         ];
     }
 
@@ -747,13 +751,17 @@ class Manage extends Component
             if ($label === '' || $price === null) {
                 continue;
             }
+            $articleNumber = isset($row['article_number']) && $row['article_number'] !== ''
+                ? mb_substr(trim((string) $row['article_number']), 0, 30)
+                : null;
             $payload = [
-                'location_id' => $location->id,
-                'label'       => $label,
-                'price_net'   => $price,
-                'unit'        => $unit,
-                'is_active'   => (bool) ($row['is_active'] ?? true),
-                'sort_order'  => (int) ($row['sort_order'] ?? 0),
+                'location_id'    => $location->id,
+                'label'          => $label,
+                'price_net'      => $price,
+                'unit'           => $unit,
+                'article_number' => $articleNumber,
+                'is_active'      => (bool) ($row['is_active'] ?? true),
+                'sort_order'     => (int) ($row['sort_order'] ?? 0),
             ];
             if (!empty($row['id'])) {
                 LocationAddon::whereKey($row['id'])->update($payload);
@@ -765,13 +773,17 @@ class Manage extends Component
 
     // ================= Article-Picker (Cross-Modul Lookup) =================
 
-    public function openArticlePicker(int $rowIndex): void
+    public function openArticlePicker(int $rowIndex, string $target = 'pricing'): void
     {
         if (!$this->isEventsArticleModelAvailable()) {
             $this->addError('articleSearchQuery', 'Events-Modul ist nicht installiert — Artikelsuche nicht verfuegbar.');
             return;
         }
+        if (!in_array($target, ['pricing', 'addon'], true)) {
+            return;
+        }
         $this->articlePickerRowIndex = $rowIndex;
+        $this->articlePickerTarget   = $target;
         $this->articleSearchQuery    = '';
         $this->articleSearchResults  = $this->searchEventsArticles('');
         $this->showArticlePickerModal = true;
@@ -781,6 +793,7 @@ class Manage extends Component
     {
         $this->showArticlePickerModal = false;
         $this->articlePickerRowIndex  = null;
+        $this->articlePickerTarget    = null;
         $this->articleSearchQuery     = '';
         $this->articleSearchResults   = [];
     }
@@ -792,21 +805,32 @@ class Manage extends Component
 
     public function pickArticle(string $articleNumber): void
     {
-        $idx = $this->articlePickerRowIndex;
-        if ($idx === null || !isset($this->pricingRows[$idx])) {
+        $idx    = $this->articlePickerRowIndex;
+        $target = $this->articlePickerTarget;
+        if ($idx === null || $target === null) {
             $this->closeArticlePicker();
             return;
         }
-        $this->pricingRows[$idx]['article_number'] = $articleNumber;
-        $this->pricingRows[$idx]['_dirty']         = true;
+
+        if ($target === 'pricing' && isset($this->pricingRows[$idx])) {
+            $this->pricingRows[$idx]['article_number'] = $articleNumber;
+            $this->pricingRows[$idx]['_dirty']         = true;
+        } elseif ($target === 'addon' && isset($this->addonRows[$idx])) {
+            $this->addonRows[$idx]['article_number'] = $articleNumber;
+            $this->addonRows[$idx]['_dirty']         = true;
+        }
         $this->closeArticlePicker();
     }
 
-    public function clearArticleNumber(int $rowIndex): void
+    public function clearArticleNumber(int $rowIndex, string $target = 'pricing'): void
     {
-        if (!isset($this->pricingRows[$rowIndex])) return;
-        $this->pricingRows[$rowIndex]['article_number'] = null;
-        $this->pricingRows[$rowIndex]['_dirty']         = true;
+        if ($target === 'pricing' && isset($this->pricingRows[$rowIndex])) {
+            $this->pricingRows[$rowIndex]['article_number'] = null;
+            $this->pricingRows[$rowIndex]['_dirty']         = true;
+        } elseif ($target === 'addon' && isset($this->addonRows[$rowIndex])) {
+            $this->addonRows[$rowIndex]['article_number'] = null;
+            $this->addonRows[$rowIndex]['_dirty']         = true;
+        }
     }
 
     /**

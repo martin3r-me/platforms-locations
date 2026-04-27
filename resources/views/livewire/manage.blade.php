@@ -372,7 +372,7 @@
                         @else
                             <div class="space-y-1.5">
                                 @foreach($addonRows as $i => $row)
-                                    <div class="grid grid-cols-[1fr_120px_140px_auto_auto] gap-2 items-center" wire:key="addon-{{ $i }}">
+                                    <div class="grid grid-cols-[1fr_110px_120px_180px_auto_auto] gap-2 items-center" wire:key="addon-{{ $i }}">
                                         <input wire:model="addonRows.{{ $i }}.label" type="text" placeholder="z.B. Heizung"
                                                class="w-full border border-[var(--ui-border)] rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/30">
                                         <input wire:model="addonRows.{{ $i }}.price_net" type="number" step="0.01" min="0" placeholder="Preis €"
@@ -384,6 +384,24 @@
                                             <option value="einmalig">einmalig</option>
                                             <option value="pro_stueck">pro Stück</option>
                                         </select>
+                                        <div class="flex items-center gap-1">
+                                            <input wire:model="addonRows.{{ $i }}.article_number" type="text" maxlength="30"
+                                                   placeholder="Artikelnr."
+                                                   title="Artikelnummer aus Events-Stamm. Suche per Lupe."
+                                                   class="flex-1 min-w-0 border border-[var(--ui-border)] rounded-md px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/30">
+                                            <button type="button" wire:click="openArticlePicker({{ $i }}, 'addon')"
+                                                    class="text-[var(--ui-primary)] hover:bg-[var(--ui-primary)]/10 rounded p-1.5"
+                                                    title="Artikel suchen">
+                                                @svg('heroicon-o-magnifying-glass', 'w-3.5 h-3.5')
+                                            </button>
+                                            @if(!empty($row['article_number']))
+                                                <button type="button" wire:click="clearArticleNumber({{ $i }}, 'addon')"
+                                                        class="text-[var(--ui-muted)] hover:bg-red-50 hover:text-red-600 rounded p-1"
+                                                        title="Artikel-Verknuepfung entfernen">
+                                                    @svg('heroicon-o-x-mark', 'w-3 h-3')
+                                                </button>
+                                            @endif
+                                        </div>
                                         <label class="flex items-center gap-1 text-[0.62rem] text-[var(--ui-secondary)] cursor-pointer select-none">
                                             <input wire:model="addonRows.{{ $i }}.is_active" type="checkbox"
                                                    class="w-3.5 h-3.5 accent-[var(--ui-primary)]">
@@ -397,6 +415,7 @@
                                 @endforeach
                             </div>
                         @endif
+                        <p class="text-[0.62rem] text-[var(--ui-muted)]">Optionale Artikelnummer verknüpft mit dem Events-Artikelstamm — bei der Einbuchung werden Gruppe, Name, MwSt, EK und Procurement-Type vom Artikel übernommen; der Preis bleibt aus dem Add-on-Eintrag, die Menge aus der Einheit oder dem User-Override.</p>
                     </div>
                 @endif
 

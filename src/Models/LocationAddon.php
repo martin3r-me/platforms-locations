@@ -41,6 +41,7 @@ class LocationAddon extends Model
         'label',
         'price_net',
         'unit',
+        'article_number',
         'is_active',
         'sort_order',
     ];

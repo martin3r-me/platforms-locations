@@ -46,15 +46,16 @@ class ListLocationAddonsTool implements ToolContract, ToolMetadataContract
             }
 
             $rows = $q->get()->map(fn ($r) => [
-                'id'         => $r->id,
-                'uuid'       => $r->uuid,
-                'location_id'=> $r->location_id,
-                'label'      => $r->label,
-                'price_net'  => (float) $r->price_net,
-                'unit'       => $r->unit,
-                'unit_label' => $r->unitLabel(),
-                'is_active'  => (bool) $r->is_active,
-                'sort_order' => (int) $r->sort_order,
+                'id'             => $r->id,
+                'uuid'           => $r->uuid,
+                'location_id'    => $r->location_id,
+                'label'          => $r->label,
+                'price_net'      => (float) $r->price_net,
+                'unit'           => $r->unit,
+                'unit_label'     => $r->unitLabel(),
+                'article_number' => $r->article_number,
+                'is_active'      => (bool) $r->is_active,
+                'sort_order'     => (int) $r->sort_order,
             ])->all();
 
             return ToolResult::success([

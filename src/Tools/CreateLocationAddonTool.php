@@ -20,7 +20,7 @@ class CreateLocationAddonTool implements ToolContract, ToolMetadataContract
 
     public function getDescription(): string
     {
-        return 'POST /locations/{location_id}/addons - Legt ein optionales Add-on an. ERFORDERLICH: location_id ODER location_uuid, label, price_net. OPTIONAL: unit (pro_tag|pro_va_tag|einmalig|pro_stueck, Default pro_tag), is_active (Default true), sort_order.';
+        return 'POST /locations/{location_id}/addons - Legt ein optionales Add-on an. ERFORDERLICH: location_id ODER location_uuid, label, price_net. OPTIONAL: unit (pro_tag|pro_va_tag|einmalig|pro_stueck, Default pro_tag), article_number (lose Verknuepfung zum Events-Artikelstamm — bei Einbuchung werden Gruppe/Name/MwSt/EK/Procurement vom Artikel uebernommen; Preis bleibt aus price_net), is_active (Default true), sort_order.';
     }
 
     public function getSchema(): array
@@ -28,13 +28,14 @@ class CreateLocationAddonTool implements ToolContract, ToolMetadataContract
         return [
             'type' => 'object',
             'properties' => [
-                'location_id'   => ['type' => 'integer'],
-                'location_uuid' => ['type' => 'string'],
-                'label'         => ['type' => 'string', 'description' => 'z.B. "Heizung", "Buehne".'],
-                'price_net'     => ['type' => 'number', 'description' => 'Netto-Preis pro Einheit.'],
-                'unit'          => ['type' => 'string', 'enum' => LocationAddon::UNITS, 'description' => 'Default: pro_tag.'],
-                'is_active'     => ['type' => 'boolean', 'description' => 'Default true.'],
-                'sort_order'    => ['type' => 'integer'],
+                'location_id'    => ['type' => 'integer'],
+                'location_uuid'  => ['type' => 'string'],
+                'label'          => ['type' => 'string', 'description' => 'z.B. "Heizung", "Buehne".'],
+                'price_net'      => ['type' => 'number', 'description' => 'Netto-Preis pro Einheit.'],
+                'unit'           => ['type' => 'string', 'enum' => LocationAddon::UNITS, 'description' => 'Default: pro_tag.'],
+                'article_number' => ['type' => 'string', 'description' => 'Optional: Artikelnummer aus dem Events-Stamm (max. 30 Zeichen). Lose Kopplung — Stammdaten werden beim Einbuchen vom Artikel uebernommen.'],
+                'is_active'      => ['type' => 'boolean', 'description' => 'Default true.'],
+                'sort_order'     => ['type' => 'integer'],
             ],
             'required' => ['label', 'price_net'],
         ];
@@ -58,18 +59,22 @@ class CreateLocationAddonTool implements ToolContract, ToolMetadataContract
             }
 
             $row = LocationAddon::create([
-                'location_id' => $location->id,
-                'label'       => $label,
-                'price_net'   => (float) $arguments['price_net'],
-                'unit'        => $unit,
-                'is_active'   => (bool) ($arguments['is_active'] ?? true),
-                'sort_order'  => isset($arguments['sort_order']) ? (int) $arguments['sort_order'] : 0,
+                'location_id'    => $location->id,
+                'label'          => $label,
+                'price_net'      => (float) $arguments['price_net'],
+                'unit'           => $unit,
+                'article_number' => isset($arguments['article_number']) && $arguments['article_number'] !== ''
+                    ? mb_substr((string) $arguments['article_number'], 0, 30)
+                    : null,
+                'is_active'      => (bool) ($arguments['is_active'] ?? true),
+                'sort_order'     => isset($arguments['sort_order']) ? (int) $arguments['sort_order'] : 0,
             ]);
 
             return ToolResult::success([
                 'id' => $row->id, 'uuid' => $row->uuid, 'location_id' => $row->location_id,
                 'label' => $row->label, 'price_net' => (float) $row->price_net,
                 'unit' => $row->unit, 'unit_label' => $row->unitLabel(),
+                'article_number' => $row->article_number,
                 'is_active' => (bool) $row->is_active, 'sort_order' => (int) $row->sort_order,
                 'message' => "Add-on '{$label}' angelegt.",
             ]);

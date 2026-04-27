@@ -17,7 +17,7 @@ class UpdateLocationAddonTool implements ToolContract, ToolMetadataContract
 
     public function getDescription(): string
     {
-        return 'PATCH /locations/addons/{id} - Aktualisiert ein Add-on. Identifikation: addon_id ODER uuid. Felder: label, price_net, unit, is_active, sort_order (alle optional).';
+        return 'PATCH /locations/addons/{id} - Aktualisiert ein Add-on. Identifikation: addon_id ODER uuid. Felder: label, price_net, unit, article_number (Events-Artikelstamm-Verknuepfung), is_active, sort_order (alle optional).';
     }
 
     public function getSchema(): array
@@ -25,13 +25,14 @@ class UpdateLocationAddonTool implements ToolContract, ToolMetadataContract
         return [
             'type' => 'object',
             'properties' => [
-                'addon_id'   => ['type' => 'integer'],
-                'uuid'       => ['type' => 'string'],
-                'label'      => ['type' => 'string'],
-                'price_net'  => ['type' => 'number'],
-                'unit'       => ['type' => 'string', 'enum' => LocationAddon::UNITS],
-                'is_active'  => ['type' => 'boolean'],
-                'sort_order' => ['type' => 'integer'],
+                'addon_id'       => ['type' => 'integer'],
+                'uuid'           => ['type' => 'string'],
+                'label'          => ['type' => 'string'],
+                'price_net'      => ['type' => 'number'],
+                'unit'           => ['type' => 'string', 'enum' => LocationAddon::UNITS],
+                'article_number' => ['type' => 'string', 'description' => 'Artikelnummer aus dem Events-Stamm. Leerstring oder null entfernt die Verknuepfung.'],
+                'is_active'      => ['type' => 'boolean'],
+                'sort_order'     => ['type' => 'integer'],
             ],
         ];
     }
@@ -74,6 +75,11 @@ class UpdateLocationAddonTool implements ToolContract, ToolMetadataContract
             if (array_key_exists('is_active', $arguments)) {
                 $update['is_active'] = (bool) $arguments['is_active'];
             }
+            if (array_key_exists('article_number', $arguments)) {
+                $update['article_number'] = $arguments['article_number'] !== '' && $arguments['article_number'] !== null
+                    ? mb_substr((string) $arguments['article_number'], 0, 30)
+                    : null;
+            }
             if (array_key_exists('sort_order', $arguments)) {
                 $update['sort_order'] = (int) $arguments['sort_order'];
             }
@@ -85,6 +91,7 @@ class UpdateLocationAddonTool implements ToolContract, ToolMetadataContract
                 'id' => $row->id, 'uuid' => $row->uuid, 'location_id' => $row->location_id,
                 'label' => $row->label, 'price_net' => (float) $row->price_net,
                 'unit' => $row->unit, 'unit_label' => $row->unitLabel(),
+                'article_number' => $row->article_number,
                 'is_active' => (bool) $row->is_active, 'sort_order' => (int) $row->sort_order,
                 'message' => 'Add-on aktualisiert.',
             ]);
