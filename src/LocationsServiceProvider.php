@@ -103,6 +103,11 @@ class LocationsServiceProvider extends ServiceProvider
             $registry->register(new \Platform\Locations\Tools\CreateLocationAddonTool());
             $registry->register(new \Platform\Locations\Tools\UpdateLocationAddonTool());
             $registry->register(new \Platform\Locations\Tools\DeleteLocationAddonTool());
+
+            // Asset-Tools (S3, Multi-Datei pro Kategorie)
+            $registry->register(new \Platform\Locations\Tools\GetLocationAssetCategoriesTool());
+            $registry->register(new \Platform\Locations\Tools\ListLocationAssetsTool());
+            $registry->register(new \Platform\Locations\Tools\DeleteLocationAssetTool());
         } catch (\Throwable $e) {
             // Silent fail – Tool-Registry ggf. noch nicht verfügbar
         }
