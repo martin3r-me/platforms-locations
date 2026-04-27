@@ -4,12 +4,16 @@ Location- und Raum-Stammdaten inkl. Auslastungsübersicht für die Platform.
 
 ## Features
 
-- **Locations-Stammdaten** – Name, Kürzel, Gruppe, PAX Min/Max, Mehrfachbelegung, Adresse, Koordinaten
+- **Locations-Stammdaten** – Name, Kürzel, Gruppe, PAX Min/Max (max inkl. Personal), Mehrfachbelegung, Adresse, Koordinaten, Größe (qm), Hallennummer, Barrierefrei, Besonderheit, Anlässe
+- **Bestuhlungs-Hinweise** – ca.-PAX-Werte pro Bestuhlungstyp (Reihenbestuhlung, Runde 10er, Eckige 6er, …) als reine Information
+- **Mietpreise pro Tag-Typ** – Pricing-Sub-Tabelle mit Volltext-Match auf Events-Settings-Tagesarten (Aufbau/Abbau/VA-Tag)
+- **Optionale Add-ons** – Zusatzposten (z.B. Heizung) mit Einheit (`pro_tag`/`pro_va_tag`/`einmalig`/`pro_stueck`)
+- **Grundriss-Upload** – PDF/PNG/JPG/WEBP pro Location (S3, ohne DB-Eintrag)
 - **Adress-Autocomplete + Karte** – Nominatim (OpenStreetMap) mit Leaflet-Karte und Stecknadel
 - **CRUD** via Livewire 3 + Alpine.js (Modal-basiert)
 - **Auslastungs-View** – Filter nach Zeitraum (Woche/Monat/Jahr/3 Monate) und Gruppe
 - **Dashboard** – Kennzahlen zu Locations, Gruppen, Kapazität, Mehrfachbelegung
-- **AI-Tools** – List/Get/Create/Update/Delete über `Platform\Core\Tools\ToolRegistry`
+- **AI-Tools** – CRUD und Bulk auf Locations + Sub-Entity-Tools (Pricings/Seating/Addons) über `Platform\Core\Tools\ToolRegistry`
 - **Team-Scoping** – alle Daten an `currentTeam` gebunden
 - **UUIDs** – `UuidV7` auf allen Models
 
@@ -81,14 +85,25 @@ Tabelle `locations_locations`.
 | `kuerzel`         | string(20)     | Kürzel für kompakte Darstellung              |
 | `gruppe`          | string?        | Gruppierung (z.B. Gebäude)                   |
 | `pax_min`         | usmallint?     | Minimale Belegung                            |
-| `pax_max`         | usmallint?     | Maximale Kapazität                           |
+| `pax_max`         | usmallint?     | Maximale Kapazität (inkl. Personal)          |
 | `mehrfachbelegung`| boolean        | Mehrere Buchungen pro Tag erlaubt            |
 | `adresse`         | string?        | Freier Adress-Text                           |
 | `sort_order`      | usmallint      | Sortierreihenfolge                           |
 | `timestamps`      | —              | created_at / updated_at                      |
 | `latitude`        | decimal(10,7)  | WGS84-Breitengrad (via Nominatim geocoded)   |
 | `longitude`       | decimal(10,7)  | WGS84-Längengrad (via Nominatim geocoded)    |
+| `groesse_qm`      | decimal(8,2)?  | Größe in Quadratmetern                       |
+| `hallennummer`    | string(30)?    | Hallennummer / interne Kennung               |
+| `barrierefrei`    | boolean        | Barrierefrei zugänglich                      |
+| `besonderheit`    | text?          | Freitext-Besonderheit                        |
+| `anlaesse`        | json?          | Liste geeigneter Anlässe (z.B. Hochzeit, …)  |
 | `deleted_at`      | —              | SoftDeletes                                  |
+
+### Sub-Tabellen
+
+- `locations_seating_options` – `label`, `pax_max_ca`, `sort_order` (FK `location_id`, cascade)
+- `locations_pricings` – `day_type_label` (Volltext gegen Events-Settings), `price_net`, optional `label`, `sort_order`
+- `locations_addons` – `label`, `price_net`, `unit` (`pro_tag`/`pro_va_tag`/`einmalig`/`pro_stueck`), `is_active`, `sort_order`
 
 ## Konventionen
 

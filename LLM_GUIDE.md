@@ -19,9 +19,14 @@
 ## Models
 - `Platform\Locations\Models\Location` (Tabelle `locations_locations`)
   - UUID + `team_id` + `user_id`
-  - Felder: `name`, `kuerzel`, `gruppe`, `pax_min`, `pax_max`, `mehrfachbelegung`, `adresse`, `latitude`, `longitude`, `sort_order`
+  - Stamm-Felder: `name`, `kuerzel`, `gruppe`, `pax_min`, `pax_max` (= max inkl. Personal), `mehrfachbelegung`, `adresse`, `latitude`, `longitude`, `sort_order`, `groesse_qm`, `hallennummer`, `barrierefrei`, `besonderheit`, `anlaesse` (json)
   - SoftDeletes
   - Helper: `hasCoordinates(): bool`
+  - Grundriss-API: `hasFloorPlan()`, `floorPlanPath()`, `floorPlanUrl()`, `floorPlanContents()`, `floorPlanMimeType()`, `floorPlanIsPdf()`, `floorPlanIsImage()`, `floorPlanDisk()`, `floorPlanDirectory()`, `floorPlanFileName()`, `floorPlanExtension()`
+  - Pricing-API: `pricings()`, `seatingOptions()`, `addons()`, `pricingForDayType($label)`, `pricingTable()`, `activeAddons()`
+- `Platform\Locations\Models\LocationSeatingOption` (Tabelle `locations_seating_options`) — Bestuhlungs-Hinweis (`label`, `pax_max_ca`)
+- `Platform\Locations\Models\LocationPricing` (Tabelle `locations_pricings`) — Mietpreis pro Tag-Typ-Volltext (`day_type_label`, `price_net`, optional `label`)
+- `Platform\Locations\Models\LocationAddon` (Tabelle `locations_addons`) — Optionaler Posten (`label`, `price_net`, `unit` ∈ `pro_tag`/`pro_va_tag`/`einmalig`/`pro_stueck`, `is_active`)
 
 ## Livewire Components & Routes
 - `Dashboard` → `locations.dashboard` → `/`
@@ -46,6 +51,29 @@ Das Adressfeld in `Manage` nutzt Nominatim für Autocomplete und speichert Koord
 - `LOCATIONS_NOMINATIM_COUNTRY` (Komma-Liste, Default: DACH + BeNeLux + FR + IT)
 
 Karte rendert im Modal über Leaflet 1.9.4 per CDN. Marker aktualisiert sich live via Livewire-Event `locations:map-update` (wird von `selectSuggestion`/`clearCoordinates` dispatched). DOM unter der Karte ist durch `wire:ignore` gegen Livewire-DOM-Patching geschützt.
+
+## Pricing & Bestuhlung & Add-ons
+
+Drei Sub-Tabellen pro Location, alle in der Manage-UI inline editierbar (nur im Edit-Modus):
+
+- **`locations_seating_options`** — Bestuhlungs-Hinweise als ca.-PAX-Werte (Mischformen werden bewusst nicht abgebildet, daher reine Information).
+- **`locations_pricings`** — Mietpreise pro Tag-Typ. `day_type_label` ist ein Volltext-String und matcht 1:1 die Tages-Typen aus den Events-Settings (`SettingsService::dayTypes()` — Defaults: `Veranstaltungstag`, `Aufbautag`, `Abbautag`, `Rüsttag`). Kein FK, kein Slug — bewusst lose gekoppelt, damit Settings und Stammdaten unabhängig pflegbar bleiben.
+- **`locations_addons`** — Optionale Zusatz-Posten (z.B. Heizung). `unit` steuert die Default-Menge beim Einbuchen ins Events-Modul: `pro_tag` = Anzahl aller Tage, `pro_va_tag` = Anzahl Tage mit dem ersten Eintrag der Settings-`dayTypes()`-Liste (Default „Veranstaltungstag"), `einmalig` und `pro_stueck` = 1 (mit User-Override).
+
+### Konsum durch Events-Modul
+
+Das Events-Modul (`Platform\Events\Services\LocationPricingApplicator`) zieht die Pricings/Addons über die öffentliche Model-API der Location:
+
+```php
+$location->pricings();              // HasMany
+$location->seatingOptions();        // HasMany
+$location->addons();                // HasMany
+$location->pricingForDayType($s);   // ?LocationPricing
+$location->pricingTable();          // array
+$location->activeAddons();          // Collection
+```
+
+Das Locations-Modul kennt das Events-Modul nicht. Die Audit-Tabelle für die Anwendung liegt in Events (`events_location_pricing_applications`).
 
 ## Grundriss-Upload (S3, ohne DB)
 
@@ -76,6 +104,11 @@ Tools werden in `LocationsServiceProvider::registerTools()` an `Platform\Core\To
 | `locations.locations.bulk.POST`   | `BulkCreateLocationsTool` | Mehrere Locations anlegen (atomic)   |
 | `locations.locations.bulk.PATCH`  | `BulkUpdateLocationsTool` | Mehrere Locations aktualisieren      |
 | `locations.locations.bulk.DELETE` | `BulkDeleteLocationsTool` | Mehrere Locations löschen            |
+| `locations.pricings.GET/POST/PATCH/DELETE` | je `*LocationPricingTool` / `ListLocationPricingsTool` | Mietpreise pro Tag-Typ |
+| `locations.seating-options.GET/POST/PATCH/DELETE` | je `*LocationSeatingOptionTool` / `ListLocationSeatingOptionsTool` | Bestuhlungs-Hinweise |
+| `locations.addons.GET/POST/PATCH/DELETE` | je `*LocationAddonTool` / `ListLocationAddonsTool` | Optionale Add-ons |
+
+Sub-Entity-Tools nutzen das `Tools\Concerns\ResolvesLocation`-Trait und akzeptieren als Eltern-Selektor `location_id` ODER `location_uuid`. `Create/UpdateLocationTool` wurden um die neuen Stamm-Felder (`groesse_qm`, `hallennummer`, `barrierefrei`, `besonderheit`, `anlaesse`) erweitert.
 
 Konventionen:
 - Team-Scope: immer `team_id` aus Argumenten oder `$context->team->id`, Zugriff via `$context->user->teams()` prüfen
