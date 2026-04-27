@@ -88,6 +88,15 @@ class Manage extends Component
     /** @var array<int,array{id:?int,uuid:?string,label:string,price_net:?string,unit:string,is_active:bool,sort_order:int,_dirty:bool}> */
     public array $addonRows = [];
 
+    // ==== Article-Picker fuer Pricing-Rows (Cross-Modul Lookup zu events_articles) ====
+
+    public bool $showArticlePickerModal = false;
+    public ?int $articlePickerRowIndex = null;
+    public string $articleSearchQuery = '';
+
+    /** @var array<int, array{article_number:string, name:string, group_name:?string, mwst:string, vk:float, ek:float}> */
+    public array $articleSearchResults = [];
+
     // ==== Asset-Uploads (Multi pro Kategorie, S3, ohne DB) ====
 
     /** @var array<int, \Livewire\Features\SupportFileUploads\TemporaryUploadedFile> */
@@ -167,6 +176,8 @@ class Manage extends Component
             'newBuffetFiles', 'newSeatingPlanFiles',
             'newPhotosWithSeatingFiles', 'newPhotosEmptyFiles',
             'uploadingAssets', 'assetFiles',
+            'showArticlePickerModal', 'articlePickerRowIndex',
+            'articleSearchQuery', 'articleSearchResults',
         ]);
         $this->resetErrorBag();
     }
@@ -750,6 +761,103 @@ class Manage extends Component
                 LocationAddon::create($payload);
             }
         }
+    }
+
+    // ================= Article-Picker (Cross-Modul Lookup) =================
+
+    public function openArticlePicker(int $rowIndex): void
+    {
+        if (!$this->isEventsArticleModelAvailable()) {
+            $this->addError('articleSearchQuery', 'Events-Modul ist nicht installiert — Artikelsuche nicht verfuegbar.');
+            return;
+        }
+        $this->articlePickerRowIndex = $rowIndex;
+        $this->articleSearchQuery    = '';
+        $this->articleSearchResults  = $this->searchEventsArticles('');
+        $this->showArticlePickerModal = true;
+    }
+
+    public function closeArticlePicker(): void
+    {
+        $this->showArticlePickerModal = false;
+        $this->articlePickerRowIndex  = null;
+        $this->articleSearchQuery     = '';
+        $this->articleSearchResults   = [];
+    }
+
+    public function updatedArticleSearchQuery(?string $value): void
+    {
+        $this->articleSearchResults = $this->searchEventsArticles((string) $value);
+    }
+
+    public function pickArticle(string $articleNumber): void
+    {
+        $idx = $this->articlePickerRowIndex;
+        if ($idx === null || !isset($this->pricingRows[$idx])) {
+            $this->closeArticlePicker();
+            return;
+        }
+        $this->pricingRows[$idx]['article_number'] = $articleNumber;
+        $this->pricingRows[$idx]['_dirty']         = true;
+        $this->closeArticlePicker();
+    }
+
+    public function clearArticleNumber(int $rowIndex): void
+    {
+        if (!isset($this->pricingRows[$rowIndex])) return;
+        $this->pricingRows[$rowIndex]['article_number'] = null;
+        $this->pricingRows[$rowIndex]['_dirty']         = true;
+    }
+
+    /**
+     * Sucht Articles im Events-Modul fuer das aktuelle Team. Gibt eine flache
+     * Liste mit max. 50 Eintraegen zurueck. Leerer Query liefert die ersten
+     * 20 aktiven Artikel (Schnell-Browse).
+     *
+     * @return array<int, array{article_number:string, name:string, group_name:?string, mwst:string, vk:float, ek:float}>
+     */
+    protected function searchEventsArticles(string $query): array
+    {
+        if (!$this->isEventsArticleModelAvailable()) {
+            return [];
+        }
+        $teamId = Auth::user()->currentTeam?->id;
+        if (!$teamId) return [];
+
+        $articleClass = '\\Platform\\Events\\Models\\Article';
+        $q = trim($query);
+
+        $builder = $articleClass::query()
+            ->where('team_id', $teamId)
+            ->where('is_active', true)
+            ->with('group:id,name');
+
+        if ($q === '') {
+            $builder->orderBy('article_number')->limit(20);
+        } else {
+            $like = $q . '%';
+            $likeName = '%' . $q . '%';
+            $builder->where(function ($w) use ($like, $likeName) {
+                $w->where('article_number', 'like', $like)
+                  ->orWhere('name', 'like', $likeName);
+            })->orderByRaw('CASE WHEN article_number LIKE ? THEN 0 ELSE 1 END', [$like])
+              ->orderBy('article_number')
+              ->limit(50);
+        }
+
+        return $builder->get()->map(fn ($a) => [
+            'article_number' => (string) $a->article_number,
+            'name'           => (string) $a->name,
+            'group_name'     => $a->group?->name,
+            'mwst'           => (string) $a->mwst,
+            'vk'             => (float) $a->vk,
+            'ek'             => (float) $a->ek,
+        ])->all();
+    }
+
+    protected function isEventsArticleModelAvailable(): bool
+    {
+        return class_exists('\\Platform\\Events\\Models\\Article');
     }
 
     public function render()

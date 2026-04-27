@@ -319,17 +319,31 @@
                         @else
                             <div class="space-y-1.5">
                                 @foreach($pricingRows as $i => $row)
-                                    <div class="grid grid-cols-[1fr_120px_1fr_140px_auto] gap-2 items-center" wire:key="pricing-{{ $i }}">
+                                    <div class="grid grid-cols-[1fr_120px_1fr_180px_auto] gap-2 items-center" wire:key="pricing-{{ $i }}">
                                         <input wire:model="pricingRows.{{ $i }}.day_type_label" type="text" placeholder="Tag-Typ (z.B. Veranstaltungstag)"
                                                class="w-full border border-[var(--ui-border)] rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/30">
                                         <input wire:model="pricingRows.{{ $i }}.price_net" type="number" step="0.01" min="0" placeholder="Preis €"
                                                class="w-full border border-[var(--ui-border)] rounded-md px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/30">
                                         <input wire:model="pricingRows.{{ $i }}.label" type="text" placeholder="Optionales Label"
                                                class="w-full border border-[var(--ui-border)] rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/30">
-                                        <input wire:model="pricingRows.{{ $i }}.article_number" type="text" maxlength="30"
-                                               placeholder="Artikelnr. (Events)"
-                                               title="Optional: Artikelnummer aus Events-Stamm. Bei Einbuchung werden Gruppe/Name/MwSt vom Artikel uebernommen."
-                                               class="w-full border border-[var(--ui-border)] rounded-md px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/30">
+                                        <div class="flex items-center gap-1">
+                                            <input wire:model="pricingRows.{{ $i }}.article_number" type="text" maxlength="30"
+                                                   placeholder="Artikelnr."
+                                                   title="Artikelnummer aus Events-Stamm. Suche per Lupe."
+                                                   class="flex-1 min-w-0 border border-[var(--ui-border)] rounded-md px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/30">
+                                            <button type="button" wire:click="openArticlePicker({{ $i }})"
+                                                    class="text-[var(--ui-primary)] hover:bg-[var(--ui-primary)]/10 rounded p-1.5"
+                                                    title="Artikel suchen">
+                                                @svg('heroicon-o-magnifying-glass', 'w-3.5 h-3.5')
+                                            </button>
+                                            @if(!empty($row['article_number']))
+                                                <button type="button" wire:click="clearArticleNumber({{ $i }})"
+                                                        class="text-[var(--ui-muted)] hover:bg-red-50 hover:text-red-600 rounded p-1"
+                                                        title="Artikel-Verknuepfung entfernen">
+                                                    @svg('heroicon-o-x-mark', 'w-3 h-3')
+                                                </button>
+                                            @endif
+                                        </div>
                                         <button type="button" wire:click="removePricingRow({{ $i }})"
                                                 class="text-[0.62rem] text-red-600 hover:bg-red-50 rounded p-1.5">
                                             @svg('heroicon-o-trash', 'w-3.5 h-3.5')
@@ -560,6 +574,78 @@
                     </x-ui-button>
                 </div>
             </form>
+        </x-ui-modal>
+
+        {{-- ===== Article-Picker (sucht in events_articles, fuer Pricing-Rows) ===== --}}
+        <x-ui-modal wire:model="showArticlePickerModal" size="lg" :hideFooter="true">
+            <x-slot name="header">Artikel auswählen</x-slot>
+
+            <div class="space-y-3">
+                <div class="relative">
+                    <input
+                        wire:model.live.debounce.300ms="articleSearchQuery"
+                        type="text"
+                        placeholder="Suchen nach Artikelnummer (Prefix) oder Name (enthält)…"
+                        autocomplete="off"
+                        class="w-full border border-[var(--ui-border)] rounded-md px-3 py-2 pl-9 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/30"
+                    />
+                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ui-muted)]">
+                        @svg('heroicon-o-magnifying-glass', 'w-4 h-4')
+                    </span>
+                    <div wire:loading wire:target="articleSearchQuery" class="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--ui-muted)]">
+                        @svg('heroicon-o-arrow-path', 'w-4 h-4 animate-spin')
+                    </div>
+                </div>
+
+                @error('articleSearchQuery')
+                    <div class="p-2 rounded border border-amber-300 bg-amber-50 text-[0.62rem] text-amber-800">{{ $message }}</div>
+                @enderror
+
+                @if(empty($articleSearchResults))
+                    <p class="text-[0.65rem] text-[var(--ui-muted)] italic text-center py-4">
+                        Keine Artikel gefunden.
+                    </p>
+                @else
+                    <div class="max-h-80 overflow-y-auto border border-[var(--ui-border)] rounded-md">
+                        <table class="w-full text-xs">
+                            <thead class="sticky top-0 bg-[var(--ui-muted-5)] border-b border-[var(--ui-border)]">
+                                <tr>
+                                    <th class="px-2 py-1.5 text-left text-[0.6rem] font-bold uppercase tracking-wider text-[var(--ui-muted)]">Nr.</th>
+                                    <th class="px-2 py-1.5 text-left text-[0.6rem] font-bold uppercase tracking-wider text-[var(--ui-muted)]">Name</th>
+                                    <th class="px-2 py-1.5 text-left text-[0.6rem] font-bold uppercase tracking-wider text-[var(--ui-muted)]">Gruppe</th>
+                                    <th class="px-2 py-1.5 text-right text-[0.6rem] font-bold uppercase tracking-wider text-[var(--ui-muted)]">VK</th>
+                                    <th class="px-2 py-1.5 text-center text-[0.6rem] font-bold uppercase tracking-wider text-[var(--ui-muted)]">MwSt</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($articleSearchResults as $a)
+                                    <tr wire:click="pickArticle('{{ $a['article_number'] }}')"
+                                        class="border-b border-[var(--ui-border)]/50 hover:bg-[var(--ui-primary)]/5 cursor-pointer last:border-b-0">
+                                        <td class="px-2 py-1.5 font-mono text-[0.65rem] font-semibold text-[var(--ui-primary)]">{{ $a['article_number'] }}</td>
+                                        <td class="px-2 py-1.5">
+                                            <span class="text-[var(--ui-secondary)] line-clamp-1">{{ $a['name'] }}</span>
+                                        </td>
+                                        <td class="px-2 py-1.5 text-[var(--ui-muted)] text-[0.65rem]">{{ $a['group_name'] ?? '—' }}</td>
+                                        <td class="px-2 py-1.5 text-right font-mono text-[0.65rem] text-[var(--ui-muted)]">
+                                            {{ number_format((float) $a['vk'], 2, ',', '.') }} €
+                                        </td>
+                                        <td class="px-2 py-1.5 text-center text-[0.65rem] text-[var(--ui-muted)]">{{ $a['mwst'] }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="text-[0.6rem] text-[var(--ui-muted)] italic">
+                        Beim Einbuchen werden Gruppe, Name, MwSt, EK und Procurement-Type vom Artikel übernommen. Der Preis bleibt aus dem Pricing-Eintrag.
+                    </p>
+                @endif
+
+                <div class="flex justify-end pt-2 border-t border-[var(--ui-border)]">
+                    <x-ui-button type="button" variant="secondary-outline" size="sm" wire:click="closeArticlePicker">
+                        Abbrechen
+                    </x-ui-button>
+                </div>
+            </div>
         </x-ui-modal>
     </x-ui-page-container>
 
