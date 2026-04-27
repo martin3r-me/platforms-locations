@@ -272,6 +272,11 @@ class Manage extends Component
         unset($data['anlaesseInput']);
         $data['anlaesse'] = $anlaesse;
 
+        // Boolean-Properties ohne Validation-Rule landen nicht in $data — explizit ergaenzen,
+        // damit Checkbox-Aenderungen tatsaechlich persistiert werden.
+        $data['mehrfachbelegung'] = (bool) $this->mehrfachbelegung;
+        $data['barrierefrei']     = (bool) $this->barrierefrei;
+
         DB::transaction(function () use ($data, $team, $user) {
             if ($this->editingId) {
                 $location = Location::where('team_id', $team->id)->where('uuid', $this->editingId)->firstOrFail();
