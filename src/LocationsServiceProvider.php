@@ -85,6 +85,24 @@ class LocationsServiceProvider extends ServiceProvider
             $registry->register(new \Platform\Locations\Tools\BulkCreateLocationsTool());
             $registry->register(new \Platform\Locations\Tools\BulkUpdateLocationsTool());
             $registry->register(new \Platform\Locations\Tools\BulkDeleteLocationsTool());
+
+            // Pricing-Sub-Entity
+            $registry->register(new \Platform\Locations\Tools\ListLocationPricingsTool());
+            $registry->register(new \Platform\Locations\Tools\CreateLocationPricingTool());
+            $registry->register(new \Platform\Locations\Tools\UpdateLocationPricingTool());
+            $registry->register(new \Platform\Locations\Tools\DeleteLocationPricingTool());
+
+            // Bestuhlung-Sub-Entity
+            $registry->register(new \Platform\Locations\Tools\ListLocationSeatingOptionsTool());
+            $registry->register(new \Platform\Locations\Tools\CreateLocationSeatingOptionTool());
+            $registry->register(new \Platform\Locations\Tools\UpdateLocationSeatingOptionTool());
+            $registry->register(new \Platform\Locations\Tools\DeleteLocationSeatingOptionTool());
+
+            // Add-on-Sub-Entity
+            $registry->register(new \Platform\Locations\Tools\ListLocationAddonsTool());
+            $registry->register(new \Platform\Locations\Tools\CreateLocationAddonTool());
+            $registry->register(new \Platform\Locations\Tools\UpdateLocationAddonTool());
+            $registry->register(new \Platform\Locations\Tools\DeleteLocationAddonTool());
         } catch (\Throwable $e) {
             // Silent fail – Tool-Registry ggf. noch nicht verfügbar
         }

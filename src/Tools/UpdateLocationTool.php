@@ -20,7 +20,7 @@ class UpdateLocationTool implements ToolContract, ToolMetadataContract
 
     public function getDescription(): string
     {
-        return 'PATCH /locations/{id} - Aktualisiert eine Location. REST-Parameter: location_id (integer) ODER uuid (string) - mindestens einer. Übrige Felder optional: name, kuerzel, gruppe, pax_min, pax_max, mehrfachbelegung, adresse, sort_order. Nur übergebene Werte werden geändert.';
+        return 'PATCH /locations/{id} - Aktualisiert eine Location. REST-Parameter: location_id (integer) ODER uuid (string) - mindestens einer. Übrige Felder optional: name, kuerzel, gruppe, pax_min, pax_max (max inkl. Personal), mehrfachbelegung, adresse, sort_order, groesse_qm, hallennummer, barrierefrei, besonderheit, anlaesse (Array). Nur übergebene Werte werden geändert.';
     }
 
     public function getSchema(): array
@@ -40,10 +40,15 @@ class UpdateLocationTool implements ToolContract, ToolMetadataContract
                 'kuerzel' => ['type' => 'string', 'description' => 'Optional: Neues Kürzel (max. 20).'],
                 'gruppe' => ['type' => 'string', 'description' => 'Optional: Neue Gruppe.'],
                 'pax_min' => ['type' => 'integer', 'description' => 'Optional: Neue Mindestbelegung.'],
-                'pax_max' => ['type' => 'integer', 'description' => 'Optional: Neue Kapazität.'],
+                'pax_max' => ['type' => 'integer', 'description' => 'Optional: Neue Kapazität (inkl. Personal).'],
                 'mehrfachbelegung' => ['type' => 'boolean', 'description' => 'Optional: Mehrfachbelegung erlaubt ja/nein.'],
                 'adresse' => ['type' => 'string', 'description' => 'Optional: Neue Adresse.'],
                 'sort_order' => ['type' => 'integer', 'description' => 'Optional: Sortierreihenfolge.'],
+                'groesse_qm' => ['type' => 'number', 'description' => 'Optional: Größe in qm.'],
+                'hallennummer' => ['type' => 'string', 'description' => 'Optional: Hallennummer (max. 30).'],
+                'barrierefrei' => ['type' => 'boolean', 'description' => 'Optional: Barrierefrei.'],
+                'besonderheit' => ['type' => 'string', 'description' => 'Optional: Besonderheit (Freitext).'],
+                'anlaesse' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'Optional: Neue Liste der Anlässe (überschreibt vorherige).'],
             ],
         ];
     }
@@ -75,13 +80,18 @@ class UpdateLocationTool implements ToolContract, ToolMetadataContract
             }
 
             $update = [];
-            foreach (['name', 'gruppe', 'adresse'] as $field) {
+            foreach (['name', 'gruppe', 'adresse', 'besonderheit'] as $field) {
                 if (array_key_exists($field, $arguments)) {
                     $update[$field] = $arguments[$field];
                 }
             }
             if (array_key_exists('kuerzel', $arguments)) {
                 $update['kuerzel'] = mb_substr((string) $arguments['kuerzel'], 0, 20);
+            }
+            if (array_key_exists('hallennummer', $arguments)) {
+                $update['hallennummer'] = $arguments['hallennummer'] !== null
+                    ? mb_substr((string) $arguments['hallennummer'], 0, 30)
+                    : null;
             }
             foreach (['pax_min', 'pax_max', 'sort_order'] as $field) {
                 if (array_key_exists($field, $arguments) && $arguments[$field] !== null) {
@@ -92,6 +102,26 @@ class UpdateLocationTool implements ToolContract, ToolMetadataContract
             }
             if (array_key_exists('mehrfachbelegung', $arguments)) {
                 $update['mehrfachbelegung'] = (bool) $arguments['mehrfachbelegung'];
+            }
+            if (array_key_exists('barrierefrei', $arguments)) {
+                $update['barrierefrei'] = (bool) $arguments['barrierefrei'];
+            }
+            if (array_key_exists('groesse_qm', $arguments)) {
+                $update['groesse_qm'] = $arguments['groesse_qm'] !== null && $arguments['groesse_qm'] !== ''
+                    ? (float) $arguments['groesse_qm']
+                    : null;
+            }
+            if (array_key_exists('anlaesse', $arguments)) {
+                if (is_array($arguments['anlaesse'])) {
+                    $cleaned = collect($arguments['anlaesse'])
+                        ->map(fn ($v) => is_string($v) ? trim($v) : null)
+                        ->filter(fn ($v) => $v !== null && $v !== '')
+                        ->values()
+                        ->all();
+                    $update['anlaesse'] = $cleaned !== [] ? $cleaned : null;
+                } else {
+                    $update['anlaesse'] = null;
+                }
             }
 
             if (empty($update)) {
@@ -111,6 +141,11 @@ class UpdateLocationTool implements ToolContract, ToolMetadataContract
                 'mehrfachbelegung' => (bool) $location->mehrfachbelegung,
                 'adresse'          => $location->adresse,
                 'sort_order'       => $location->sort_order,
+                'groesse_qm'       => $location->groesse_qm !== null ? (float) $location->groesse_qm : null,
+                'hallennummer'     => $location->hallennummer,
+                'barrierefrei'     => (bool) $location->barrierefrei,
+                'besonderheit'     => $location->besonderheit,
+                'anlaesse'         => $location->anlaesse,
                 'team_id'          => $location->team_id,
                 'message'          => "Location '{$location->name}' erfolgreich aktualisiert.",
             ]);

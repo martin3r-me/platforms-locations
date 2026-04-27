@@ -24,7 +24,7 @@ class CreateLocationTool implements ToolContract, ToolMetadataContract
 
     public function getDescription(): string
     {
-        return 'POST /locations - Erstellt eine neue Location. REST-Parameter: name (required, string), kuerzel (required, string, max 20), team_id (optional, integer) - sonst aktuelles Team, gruppe (optional, string), pax_min (optional, integer), pax_max (optional, integer), mehrfachbelegung (optional, boolean, default false), adresse (optional, string).';
+        return 'POST /locations - Erstellt eine neue Location. REST-Parameter: name (required), kuerzel (required, max 20), team_id (optional), gruppe (optional), pax_min (optional), pax_max (optional, gemeint als max inkl. Personal), mehrfachbelegung (optional, default false), adresse (optional), groesse_qm (optional, decimal), hallennummer (optional), barrierefrei (optional, boolean, default false), besonderheit (optional, string), anlaesse (optional, array of strings z.B. ["Hochzeit","Firmenfeier"]).';
     }
 
     public function getSchema(): array
@@ -64,6 +64,27 @@ class CreateLocationTool implements ToolContract, ToolMetadataContract
                     'type' => 'string',
                     'description' => 'Optional: Adresse (Straße, PLZ Ort).',
                 ],
+                'groesse_qm' => [
+                    'type' => 'number',
+                    'description' => 'Optional: Größe der Location in Quadratmetern.',
+                ],
+                'hallennummer' => [
+                    'type' => 'string',
+                    'description' => 'Optional: Hallennummer / interne Kennung (max. 30 Zeichen).',
+                ],
+                'barrierefrei' => [
+                    'type' => 'boolean',
+                    'description' => 'Optional: Ist die Location barrierefrei zugänglich? Default false.',
+                ],
+                'besonderheit' => [
+                    'type' => 'string',
+                    'description' => 'Optional: Besonderheiten (Freitext, z.B. "3 verfahrbare Kronleuchter").',
+                ],
+                'anlaesse' => [
+                    'type' => 'array',
+                    'items' => ['type' => 'string'],
+                    'description' => 'Optional: Liste von geeigneten Anlässen (z.B. ["Hochzeit","Firmenfeier","Tagung"]).',
+                ],
             ],
             'required' => ['name', 'kuerzel'],
         ];
@@ -100,6 +121,18 @@ class CreateLocationTool implements ToolContract, ToolMetadataContract
 
             $maxSort = Location::where('team_id', $teamId)->max('sort_order') ?? 0;
 
+            $anlaesse = null;
+            if (array_key_exists('anlaesse', $arguments) && is_array($arguments['anlaesse'])) {
+                $anlaesse = collect($arguments['anlaesse'])
+                    ->map(fn ($v) => is_string($v) ? trim($v) : null)
+                    ->filter(fn ($v) => $v !== null && $v !== '')
+                    ->values()
+                    ->all();
+                if ($anlaesse === []) {
+                    $anlaesse = null;
+                }
+            }
+
             $location = Location::create([
                 'team_id'          => $teamId,
                 'user_id'          => $context->user->id,
@@ -110,6 +143,11 @@ class CreateLocationTool implements ToolContract, ToolMetadataContract
                 'pax_max'          => isset($arguments['pax_max']) ? (int) $arguments['pax_max'] : null,
                 'mehrfachbelegung' => (bool) ($arguments['mehrfachbelegung'] ?? false),
                 'adresse'          => $arguments['adresse'] ?? null,
+                'groesse_qm'       => isset($arguments['groesse_qm']) ? (float) $arguments['groesse_qm'] : null,
+                'hallennummer'     => isset($arguments['hallennummer']) ? mb_substr((string) $arguments['hallennummer'], 0, 30) : null,
+                'barrierefrei'     => (bool) ($arguments['barrierefrei'] ?? false),
+                'besonderheit'     => $arguments['besonderheit'] ?? null,
+                'anlaesse'         => $anlaesse,
                 'sort_order'       => $maxSort + 1,
             ]);
 
@@ -123,6 +161,11 @@ class CreateLocationTool implements ToolContract, ToolMetadataContract
                 'pax_max'          => $location->pax_max,
                 'mehrfachbelegung' => (bool) $location->mehrfachbelegung,
                 'adresse'          => $location->adresse,
+                'groesse_qm'       => $location->groesse_qm !== null ? (float) $location->groesse_qm : null,
+                'hallennummer'     => $location->hallennummer,
+                'barrierefrei'     => (bool) $location->barrierefrei,
+                'besonderheit'     => $location->besonderheit,
+                'anlaesse'         => $location->anlaesse,
                 'sort_order'       => $location->sort_order,
                 'team_id'          => $location->team_id,
                 'message'          => "Location '{$location->name}' erfolgreich erstellt.",
