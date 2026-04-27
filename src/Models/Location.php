@@ -4,7 +4,9 @@ namespace Platform\Locations\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Uid\UuidV7;
 
@@ -31,6 +33,11 @@ class Location extends Model
         'latitude',
         'longitude',
         'sort_order',
+        'groesse_qm',
+        'hallennummer',
+        'barrierefrei',
+        'besonderheit',
+        'anlaesse',
     ];
 
     protected $casts = [
@@ -41,6 +48,9 @@ class Location extends Model
         'latitude' => 'float',
         'longitude' => 'float',
         'sort_order' => 'integer',
+        'groesse_qm' => 'decimal:2',
+        'barrierefrei' => 'boolean',
+        'anlaesse' => 'array',
     ];
 
     public function hasCoordinates(): bool
@@ -206,5 +216,59 @@ class Location extends Model
             'webp' => 'image/webp',
             default => null,
         };
+    }
+
+    // ================= Pricing / Bestuhlung / Add-ons (Public API) =================
+
+    public function pricings(): HasMany
+    {
+        return $this->hasMany(LocationPricing::class)->orderBy('sort_order')->orderBy('day_type_label');
+    }
+
+    public function seatingOptions(): HasMany
+    {
+        return $this->hasMany(LocationSeatingOption::class)->orderBy('sort_order')->orderBy('label');
+    }
+
+    public function addons(): HasMany
+    {
+        return $this->hasMany(LocationAddon::class)->orderBy('sort_order')->orderBy('label');
+    }
+
+    /**
+     * Liefert das (erste) Pricing zu einem Tag-Typ-Volltext (z. B. "Veranstaltungstag")
+     * oder null, wenn fuer diese Location kein Eintrag gepflegt ist.
+     */
+    public function pricingForDayType(string $dayTypeLabel): ?LocationPricing
+    {
+        return $this->pricings()
+            ->where('day_type_label', $dayTypeLabel)
+            ->orderBy('sort_order')
+            ->first();
+    }
+
+    /**
+     * Flache Liste aller Pricings als Array (fuer Picker / API-Returns).
+     *
+     * @return array<int, array{id:int, uuid:string, day_type_label:string, price_net:string, label:?string, display_label:string}>
+     */
+    public function pricingTable(): array
+    {
+        return $this->pricings()->get()->map(fn (LocationPricing $p) => [
+            'id' => $p->id,
+            'uuid' => $p->uuid,
+            'day_type_label' => $p->day_type_label,
+            'price_net' => (string) $p->price_net,
+            'label' => $p->label,
+            'display_label' => $p->displayLabel(),
+        ])->all();
+    }
+
+    /**
+     * Aktive Add-ons (is_active=true) in Sort-Reihenfolge.
+     */
+    public function activeAddons(): Collection
+    {
+        return $this->addons()->where('is_active', true)->get();
     }
 }
