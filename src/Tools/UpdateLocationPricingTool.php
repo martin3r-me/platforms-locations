@@ -7,9 +7,17 @@ use Platform\Core\Contracts\ToolContext;
 use Platform\Core\Contracts\ToolResult;
 use Platform\Core\Contracts\ToolMetadataContract;
 use Platform\Locations\Models\LocationPricing;
+use Platform\Locations\Tools\Concerns\RecommendsMissingLocationFields;
 
 class UpdateLocationPricingTool implements ToolContract, ToolMetadataContract
 {
+    use RecommendsMissingLocationFields;
+
+    protected const KNOWN_FIELDS = [
+        'pricing_id', 'uuid',
+        'day_type_label', 'price_net', 'label', 'article_number', 'sort_order',
+    ];
+
     public function getName(): string
     {
         return 'locations.pricings.PATCH';
@@ -88,6 +96,9 @@ class UpdateLocationPricingTool implements ToolContract, ToolMetadataContract
 
             $pricing->update($update);
 
+            $ignored = array_values(array_diff(array_keys($arguments), self::KNOWN_FIELDS));
+            $hints   = $this->recommendedSubEntityFieldOptions($pricing->location?->team_id);
+
             return ToolResult::success([
                 'id'             => $pricing->id,
                 'uuid'           => $pricing->uuid,
@@ -97,6 +108,9 @@ class UpdateLocationPricingTool implements ToolContract, ToolMetadataContract
                 'label'          => $pricing->label,
                 'article_number' => $pricing->article_number,
                 'sort_order'     => (int) $pricing->sort_order,
+                'updated_fields' => array_keys($update),
+                'ignored_fields' => $ignored,
+                '_field_hints'   => ['day_type_label' => $hints['day_type_label'] ?? null],
                 'message'        => 'Pricing aktualisiert.',
             ]);
         } catch (\Throwable $e) {

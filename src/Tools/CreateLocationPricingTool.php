@@ -7,11 +7,18 @@ use Platform\Core\Contracts\ToolContext;
 use Platform\Core\Contracts\ToolResult;
 use Platform\Core\Contracts\ToolMetadataContract;
 use Platform\Locations\Models\LocationPricing;
+use Platform\Locations\Tools\Concerns\RecommendsMissingLocationFields;
 use Platform\Locations\Tools\Concerns\ResolvesLocation;
 
 class CreateLocationPricingTool implements ToolContract, ToolMetadataContract
 {
     use ResolvesLocation;
+    use RecommendsMissingLocationFields;
+
+    protected const KNOWN_FIELDS = [
+        'location_id', 'location_uuid',
+        'day_type_label', 'price_net', 'label', 'article_number', 'sort_order',
+    ];
 
     public function getName(): string
     {
@@ -67,6 +74,9 @@ class CreateLocationPricingTool implements ToolContract, ToolMetadataContract
                 'sort_order'     => isset($arguments['sort_order']) ? (int) $arguments['sort_order'] : 0,
             ]);
 
+            $ignored = array_values(array_diff(array_keys($arguments), self::KNOWN_FIELDS));
+            $hints   = $this->recommendedSubEntityFieldOptions($location->team_id);
+
             return ToolResult::success([
                 'id'             => $pricing->id,
                 'uuid'           => $pricing->uuid,
@@ -76,6 +86,8 @@ class CreateLocationPricingTool implements ToolContract, ToolMetadataContract
                 'label'          => $pricing->label,
                 'article_number' => $pricing->article_number,
                 'sort_order'     => (int) $pricing->sort_order,
+                'ignored_fields' => $ignored,
+                '_field_hints'   => ['day_type_label' => $hints['day_type_label'] ?? null],
                 'message'        => "Mietpreis fuer '{$dayType}' angelegt.",
             ]);
         } catch (\Throwable $e) {

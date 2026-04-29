@@ -7,6 +7,8 @@ use Platform\Core\Contracts\ToolContext;
 use Platform\Core\Contracts\ToolResult;
 use Platform\Core\Contracts\ToolMetadataContract;
 use Platform\Locations\Models\Location;
+use Platform\Locations\Tools\Concerns\NormalizesLocationFields;
+use Platform\Locations\Tools\Concerns\RecommendsMissingLocationFields;
 
 /**
  * Erstellt eine neue Location (Raum/Standort).
@@ -17,6 +19,16 @@ use Platform\Locations\Models\Location;
  */
 class CreateLocationTool implements ToolContract, ToolMetadataContract
 {
+    use NormalizesLocationFields;
+    use RecommendsMissingLocationFields;
+
+    /** @var array<int,string> Feldnamen, die das Tool akzeptiert (fuer ignored_fields-Diff) */
+    protected const KNOWN_FIELDS = [
+        'name', 'kuerzel', 'team_id', 'gruppe', 'pax_min', 'pax_max',
+        'mehrfachbelegung', 'adresse', 'groesse_qm', 'hallennummer',
+        'barrierefrei', 'besonderheit', 'beschreibung', 'anlaesse',
+    ];
+
     public function getName(): string
     {
         return 'locations.locations.POST';
@@ -100,6 +112,10 @@ class CreateLocationTool implements ToolContract, ToolMetadataContract
             if (!$context->user) {
                 return ToolResult::error('AUTH_ERROR', 'Kein User im Kontext gefunden.');
             }
+
+            // Aliases anwenden (z. B. anlaesse-String -> Array, address->adresse, ...)
+            $aliases = $this->normalizeLocationFields($arguments);
+
             if (empty($arguments['name'])) {
                 return ToolResult::error('VALIDATION_ERROR', 'name ist erforderlich.');
             }
@@ -135,6 +151,10 @@ class CreateLocationTool implements ToolContract, ToolMetadataContract
                 if ($anlaesse === []) {
                     $anlaesse = null;
                 }
+            } elseif (array_key_exists('anlaesse', $arguments) && $arguments['anlaesse'] !== null) {
+                // Nicht-Array (und nicht null) — sollte durch NormalizesLocationFields
+                // bereits abgefangen sein (String-Split). Hier Schutz gegen Fremd-Typen.
+                return ToolResult::error('VALIDATION_ERROR', 'anlaesse muss ein Array von Strings sein. Tipp: Komma-Liste als String wird automatisch konvertiert (siehe aliases_applied).');
             }
 
             $location = Location::create([
@@ -156,6 +176,9 @@ class CreateLocationTool implements ToolContract, ToolMetadataContract
                 'sort_order'       => $maxSort + 1,
             ]);
 
+            $known = array_merge(self::KNOWN_FIELDS, array_keys($this->aliasMapForDiff()));
+            $ignored = array_values(array_diff(array_keys($arguments), $known));
+
             return ToolResult::success([
                 'id'               => $location->id,
                 'uuid'             => $location->uuid,
@@ -174,11 +197,29 @@ class CreateLocationTool implements ToolContract, ToolMetadataContract
                 'anlaesse'         => $location->anlaesse,
                 'sort_order'       => $location->sort_order,
                 'team_id'          => $location->team_id,
+                'aliases_applied'  => $aliases,
+                'ignored_fields'   => $ignored,
+                'empty_recommended_fields'        => $this->emptyRecommendedLocationFields($location),
+                'empty_recommended_field_options' => $this->recommendedLocationFieldOptions($location->team_id),
                 'message'          => "Location '{$location->name}' erfolgreich erstellt.",
             ]);
         } catch (\Throwable $e) {
             return ToolResult::error('EXECUTION_ERROR', 'Fehler beim Erstellen der Location: ' . $e->getMessage());
         }
+    }
+
+    /** @return array<string, string> Alias-Eingabefelder (fuer ignored_fields-Diff) */
+    protected function aliasMapForDiff(): array
+    {
+        return [
+            'address'     => 'adresse',
+            'description' => 'beschreibung',
+            'highlight'   => 'besonderheit',
+            'occasions'   => 'anlaesse',
+            'size_sqm'    => 'groesse_qm',
+            'hall_number' => 'hallennummer',
+            'accessible'  => 'barrierefrei',
+        ];
     }
 
     public function getMetadata(): array

@@ -7,12 +7,15 @@ use Platform\Core\Contracts\ToolContext;
 use Platform\Core\Contracts\ToolResult;
 use Platform\Core\Contracts\ToolMetadataContract;
 use Platform\Locations\Models\Location;
+use Platform\Locations\Tools\Concerns\RecommendsMissingLocationFields;
 
 /**
  * Liefert Details zu einer einzelnen Location.
  */
 class GetLocationTool implements ToolContract, ToolMetadataContract
 {
+    use RecommendsMissingLocationFields;
+
     public function getName(): string
     {
         return 'locations.location.GET';
@@ -88,6 +91,8 @@ class GetLocationTool implements ToolContract, ToolMetadataContract
                 'team_id'          => $location->team_id,
                 'created_at'       => $location->created_at?->toIso8601String(),
                 'updated_at'       => $location->updated_at?->toIso8601String(),
+                'empty_recommended_fields'        => $this->emptyRecommendedLocationFields($location),
+                'empty_recommended_field_options' => $this->recommendedLocationFieldOptions($location->team_id),
             ]);
         } catch (\Throwable $e) {
             return ToolResult::error('EXECUTION_ERROR', 'Fehler beim Laden der Location: ' . $e->getMessage());

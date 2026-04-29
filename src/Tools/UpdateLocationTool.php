@@ -7,12 +7,26 @@ use Platform\Core\Contracts\ToolContext;
 use Platform\Core\Contracts\ToolResult;
 use Platform\Core\Contracts\ToolMetadataContract;
 use Platform\Locations\Models\Location;
+use Platform\Locations\Tools\Concerns\NormalizesLocationFields;
+use Platform\Locations\Tools\Concerns\RecommendsMissingLocationFields;
 
 /**
  * Aktualisiert eine Location. Nur übergebene Felder werden geändert.
  */
 class UpdateLocationTool implements ToolContract, ToolMetadataContract
 {
+    use NormalizesLocationFields;
+    use RecommendsMissingLocationFields;
+
+    /** @var array<int,string> Identifikations-Felder + akzeptierte Update-Felder (fuer ignored_fields-Diff) */
+    protected const KNOWN_FIELDS = [
+        'location_id', 'uuid',
+        'name', 'kuerzel', 'gruppe', 'pax_min', 'pax_max',
+        'mehrfachbelegung', 'adresse', 'sort_order',
+        'groesse_qm', 'hallennummer', 'barrierefrei',
+        'besonderheit', 'beschreibung', 'anlaesse',
+    ];
+
     public function getName(): string
     {
         return 'locations.locations.PATCH';
@@ -60,6 +74,9 @@ class UpdateLocationTool implements ToolContract, ToolMetadataContract
             if (!$context->user) {
                 return ToolResult::error('AUTH_ERROR', 'Kein User im Kontext gefunden.');
             }
+
+            // Aliases anwenden (z. B. anlaesse-String -> Array, address->adresse, ...)
+            $aliases = $this->normalizeLocationFields($arguments);
 
             $query = Location::query();
             if (!empty($arguments['location_id'])) {
@@ -120,8 +137,10 @@ class UpdateLocationTool implements ToolContract, ToolMetadataContract
                         ->values()
                         ->all();
                     $update['anlaesse'] = $cleaned !== [] ? $cleaned : null;
-                } else {
+                } elseif ($arguments['anlaesse'] === null) {
                     $update['anlaesse'] = null;
+                } else {
+                    return ToolResult::error('VALIDATION_ERROR', 'anlaesse muss ein Array von Strings (oder null) sein. Tipp: Komma-Liste als String wird automatisch konvertiert (siehe aliases_applied).');
                 }
             }
 
@@ -130,6 +149,9 @@ class UpdateLocationTool implements ToolContract, ToolMetadataContract
             }
 
             $location->update($update);
+
+            $known = array_merge(self::KNOWN_FIELDS, array_keys($this->aliasMapForDiff()));
+            $ignored = array_values(array_diff(array_keys($arguments), $known));
 
             return ToolResult::success([
                 'id'               => $location->id,
@@ -149,11 +171,30 @@ class UpdateLocationTool implements ToolContract, ToolMetadataContract
                 'beschreibung'     => $location->beschreibung,
                 'anlaesse'         => $location->anlaesse,
                 'team_id'          => $location->team_id,
+                'updated_fields'   => array_keys($update),
+                'aliases_applied'  => $aliases,
+                'ignored_fields'   => $ignored,
+                'empty_recommended_fields'        => $this->emptyRecommendedLocationFields($location),
+                'empty_recommended_field_options' => $this->recommendedLocationFieldOptions($location->team_id),
                 'message'          => "Location '{$location->name}' erfolgreich aktualisiert.",
             ]);
         } catch (\Throwable $e) {
             return ToolResult::error('EXECUTION_ERROR', 'Fehler beim Aktualisieren der Location: ' . $e->getMessage());
         }
+    }
+
+    /** @return array<string, string> Alias-Eingabefelder (fuer ignored_fields-Diff) */
+    protected function aliasMapForDiff(): array
+    {
+        return [
+            'address'     => 'adresse',
+            'description' => 'beschreibung',
+            'highlight'   => 'besonderheit',
+            'occasions'   => 'anlaesse',
+            'size_sqm'    => 'groesse_qm',
+            'hall_number' => 'hallennummer',
+            'accessible'  => 'barrierefrei',
+        ];
     }
 
     public function getMetadata(): array

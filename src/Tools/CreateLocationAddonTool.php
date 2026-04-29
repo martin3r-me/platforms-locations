@@ -7,11 +7,18 @@ use Platform\Core\Contracts\ToolContext;
 use Platform\Core\Contracts\ToolResult;
 use Platform\Core\Contracts\ToolMetadataContract;
 use Platform\Locations\Models\LocationAddon;
+use Platform\Locations\Tools\Concerns\RecommendsMissingLocationFields;
 use Platform\Locations\Tools\Concerns\ResolvesLocation;
 
 class CreateLocationAddonTool implements ToolContract, ToolMetadataContract
 {
     use ResolvesLocation;
+    use RecommendsMissingLocationFields;
+
+    protected const KNOWN_FIELDS = [
+        'location_id', 'location_uuid',
+        'label', 'price_net', 'unit', 'article_number', 'is_active', 'sort_order',
+    ];
 
     public function getName(): string
     {
@@ -70,12 +77,17 @@ class CreateLocationAddonTool implements ToolContract, ToolMetadataContract
                 'sort_order'     => isset($arguments['sort_order']) ? (int) $arguments['sort_order'] : 0,
             ]);
 
+            $ignored = array_values(array_diff(array_keys($arguments), self::KNOWN_FIELDS));
+            $hints   = $this->recommendedSubEntityFieldOptions($location->team_id);
+
             return ToolResult::success([
                 'id' => $row->id, 'uuid' => $row->uuid, 'location_id' => $row->location_id,
                 'label' => $row->label, 'price_net' => (float) $row->price_net,
                 'unit' => $row->unit, 'unit_label' => $row->unitLabel(),
                 'article_number' => $row->article_number,
                 'is_active' => (bool) $row->is_active, 'sort_order' => (int) $row->sort_order,
+                'ignored_fields' => $ignored,
+                '_field_hints'   => ['unit' => $hints['unit'] ?? null],
                 'message' => "Add-on '{$label}' angelegt.",
             ]);
         } catch (\Throwable $e) {
