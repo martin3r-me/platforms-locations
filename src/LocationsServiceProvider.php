@@ -108,6 +108,11 @@ class LocationsServiceProvider extends ServiceProvider
             $registry->register(new \Platform\Locations\Tools\GetLocationAssetCategoriesTool());
             $registry->register(new \Platform\Locations\Tools\ListLocationAssetsTool());
             $registry->register(new \Platform\Locations\Tools\DeleteLocationAssetTool());
+
+            // Bulk-Create fuer Sub-Entitaeten (Convenience: 1 Call statt N)
+            $registry->register(new \Platform\Locations\Tools\BulkCreateLocationPricingsTool());
+            $registry->register(new \Platform\Locations\Tools\BulkCreateLocationSeatingOptionsTool());
+            $registry->register(new \Platform\Locations\Tools\BulkCreateLocationAddonsTool());
         } catch (\Throwable $e) {
             // Silent fail – Tool-Registry ggf. noch nicht verfügbar
         }
