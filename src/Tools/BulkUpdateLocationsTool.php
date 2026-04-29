@@ -39,9 +39,15 @@ class BulkUpdateLocationsTool implements ToolContract, ToolMetadataContract
             'kuerzel'          => ['type' => 'string'],
             'gruppe'           => ['type' => 'string'],
             'pax_min'          => ['type' => 'integer'],
-            'pax_max'          => ['type' => 'integer'],
+            'pax_max'          => ['type' => 'integer', 'description' => 'Max. Kapazität (inkl. Personal).'],
             'mehrfachbelegung' => ['type' => 'boolean'],
             'adresse'          => ['type' => 'string'],
+            'groesse_qm'       => ['type' => 'number', 'description' => 'Größe in qm.'],
+            'hallennummer'     => ['type' => 'string', 'description' => 'Hallennummer (max 30).'],
+            'barrierefrei'     => ['type' => 'boolean'],
+            'besonderheit'     => ['type' => 'string', 'description' => 'Kurze Hervorhebung.'],
+            'beschreibung'     => ['type' => 'string', 'description' => 'Langer Marketing-/Historie-Text.'],
+            'anlaesse'         => ['type' => 'array', 'items' => ['type' => 'string']],
             'sort_order'       => ['type' => 'integer'],
         ];
 

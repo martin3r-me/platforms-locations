@@ -82,9 +82,10 @@ class ListLocationsTool implements ToolContract, ToolMetadataContract
             }
 
             $this->applyStandardFilters($query, $arguments, [
-                'name', 'kuerzel', 'gruppe', 'pax_min', 'pax_max', 'mehrfachbelegung', 'adresse', 'created_at', 'updated_at',
+                'name', 'kuerzel', 'gruppe', 'pax_min', 'pax_max', 'mehrfachbelegung', 'adresse',
+                'groesse_qm', 'hallennummer', 'barrierefrei', 'created_at', 'updated_at',
             ]);
-            $this->applyStandardSearch($query, $arguments, ['name', 'kuerzel', 'gruppe', 'adresse']);
+            $this->applyStandardSearch($query, $arguments, ['name', 'kuerzel', 'gruppe', 'adresse', 'hallennummer', 'besonderheit']);
             $this->applyStandardSort($query, $arguments, ['name', 'kuerzel', 'sort_order', 'created_at', 'updated_at'], 'sort_order', 'asc');
             $this->applyStandardPagination($query, $arguments);
 
@@ -100,6 +101,12 @@ class ListLocationsTool implements ToolContract, ToolMetadataContract
                 'adresse'          => $l->adresse,
                 'latitude'         => $l->latitude,
                 'longitude'        => $l->longitude,
+                'groesse_qm'       => $l->groesse_qm !== null ? (float) $l->groesse_qm : null,
+                'hallennummer'     => $l->hallennummer,
+                'barrierefrei'     => (bool) $l->barrierefrei,
+                'besonderheit'     => $l->besonderheit,
+                'beschreibung'     => $l->beschreibung,
+                'anlaesse'         => $l->anlaesse,
                 'sort_order'       => $l->sort_order,
                 'team_id'          => $l->team_id,
                 'created_at'       => $l->created_at?->toIso8601String(),
