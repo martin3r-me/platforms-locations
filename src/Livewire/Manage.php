@@ -4,7 +4,6 @@ namespace Platform\Locations\Livewire;
 
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
@@ -13,6 +12,7 @@ use Platform\Locations\Models\Location;
 use Platform\Locations\Models\LocationAddon;
 use Platform\Locations\Models\LocationPricing;
 use Platform\Locations\Models\LocationSeatingOption;
+use Platform\Locations\Services\GeocodingService;
 use Platform\Locations\Services\LocationAssetService;
 
 class Manage extends Component
@@ -198,49 +198,7 @@ class Manage extends Component
 
     public function searchAddress(?string $query): void
     {
-        $query = trim((string) $query);
-        if (mb_strlen($query) < 3) {
-            $this->addressSuggestions = [];
-            return;
-        }
-
-        $cfg = config('locations.geocoding', []);
-
-        $userAgent = $cfg['user_agent']
-            ?: ('Platform-Locations/1.0 (' . (string) config('app.name', 'platform') . ')');
-
-        try {
-            $response = Http::withHeaders([
-                'User-Agent'      => $userAgent,
-                'Accept-Language' => (string) ($cfg['language'] ?? 'de'),
-            ])
-                ->timeout(5)
-                ->get(rtrim((string) ($cfg['nominatim_url'] ?? 'https://nominatim.openstreetmap.org'), '/') . '/search', [
-                    'q'              => $query,
-                    'format'         => 'jsonv2',
-                    'addressdetails' => 1,
-                    'limit'          => (int) ($cfg['limit'] ?? 6),
-                    'countrycodes'   => (string) ($cfg['countrycodes'] ?? ''),
-                ]);
-
-            if (!$response->ok()) {
-                $this->addressSuggestions = [];
-                return;
-            }
-
-            $this->addressSuggestions = collect($response->json() ?? [])
-                ->map(fn($row) => [
-                    'display' => (string) ($row['display_name'] ?? ''),
-                    'lat'     => isset($row['lat']) ? (float) $row['lat'] : null,
-                    'lon'     => isset($row['lon']) ? (float) $row['lon'] : null,
-                    'type'    => (string) ($row['type'] ?? ''),
-                ])
-                ->filter(fn($s) => $s['display'] !== '' && $s['lat'] !== null && $s['lon'] !== null)
-                ->values()
-                ->all();
-        } catch (\Throwable $e) {
-            $this->addressSuggestions = [];
-        }
+        $this->addressSuggestions = app(GeocodingService::class)->searchSuggestions((string) $query);
     }
 
     public function selectSuggestion(int $index): void

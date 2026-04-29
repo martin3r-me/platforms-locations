@@ -7,6 +7,7 @@ use Platform\Core\Contracts\ToolContext;
 use Platform\Core\Contracts\ToolResult;
 use Platform\Core\Contracts\ToolMetadataContract;
 use Platform\Locations\Models\Location;
+use Platform\Locations\Services\GeocodingService;
 use Platform\Locations\Tools\Concerns\NormalizesLocationFields;
 use Platform\Locations\Tools\Concerns\RecommendsMissingLocationFields;
 
@@ -25,8 +26,10 @@ class CreateLocationTool implements ToolContract, ToolMetadataContract
     /** @var array<int,string> Feldnamen, die das Tool akzeptiert (fuer ignored_fields-Diff) */
     protected const KNOWN_FIELDS = [
         'name', 'kuerzel', 'team_id', 'gruppe', 'pax_min', 'pax_max',
-        'mehrfachbelegung', 'adresse', 'groesse_qm', 'hallennummer',
+        'mehrfachbelegung', 'adresse', 'latitude', 'longitude',
+        'groesse_qm', 'hallennummer',
         'barrierefrei', 'besonderheit', 'beschreibung', 'anlaesse',
+        'geocode',
     ];
 
     public function getName(): string
@@ -36,7 +39,7 @@ class CreateLocationTool implements ToolContract, ToolMetadataContract
 
     public function getDescription(): string
     {
-        return 'POST /locations - Erstellt eine neue Location. REST-Parameter: name (required), kuerzel (required, max 20), team_id (optional), gruppe (optional), pax_min (optional), pax_max (optional, gemeint als max inkl. Personal), mehrfachbelegung (optional, default false), adresse (optional), groesse_qm (optional, decimal), hallennummer (optional), barrierefrei (optional, boolean, default false), besonderheit (optional, kurze Hervorhebung), beschreibung (optional, langer Fließtext für Marketing/Historie/Kundeninfo), anlaesse (optional, array of strings z.B. ["Hochzeit","Firmenfeier"]).';
+        return 'POST /locations - Erstellt eine neue Location. REST-Parameter: name (required), kuerzel (required, max 20), team_id (optional), gruppe (optional), pax_min (optional), pax_max (optional, gemeint als max inkl. Personal), mehrfachbelegung (optional, default false), adresse (optional, wird automatisch via Nominatim geocoded -> setzt latitude/longitude, ausser geocode=false oder lat/lng explizit mitgegeben), latitude/longitude (optional, beide oder keiner), groesse_qm (optional, decimal), hallennummer (optional), barrierefrei (optional, boolean, default false), besonderheit (optional, kurze Hervorhebung), beschreibung (optional, langer Fließtext für Marketing/Historie/Kundeninfo), anlaesse (optional, array of strings z.B. ["Hochzeit","Firmenfeier"]), geocode (optional, boolean, default true — auf false setzen, um den Nominatim-Lookup zu unterdruecken).';
     }
 
     public function getSchema(): array
@@ -74,7 +77,19 @@ class CreateLocationTool implements ToolContract, ToolMetadataContract
                 ],
                 'adresse' => [
                     'type' => 'string',
-                    'description' => 'Optional: Adresse (Straße, PLZ Ort).',
+                    'description' => 'Optional: Adresse (Straße, PLZ Ort). Wird per Default via Nominatim geocoded -> setzt latitude/longitude. Mit geocode=false oder expliziten latitude/longitude wird der Lookup uebersprungen.',
+                ],
+                'latitude' => [
+                    'type' => 'number',
+                    'description' => 'Optional: WGS84-Breitengrad. Wenn explizit mitgegeben, wird kein Geocoding-Lookup ausgefuehrt.',
+                ],
+                'longitude' => [
+                    'type' => 'number',
+                    'description' => 'Optional: WGS84-Laengengrad. Wenn explizit mitgegeben, wird kein Geocoding-Lookup ausgefuehrt.',
+                ],
+                'geocode' => [
+                    'type' => 'boolean',
+                    'description' => 'Optional (Default true): Wenn false, wird die Adresse NICHT via Nominatim geocoded — Lat/Lng bleiben null, ausser explizit gesetzt.',
                 ],
                 'groesse_qm' => [
                     'type' => 'number',
@@ -157,6 +172,24 @@ class CreateLocationTool implements ToolContract, ToolMetadataContract
                 return ToolResult::error('VALIDATION_ERROR', 'anlaesse muss ein Array von Strings sein. Tipp: Komma-Liste als String wird automatisch konvertiert (siehe aliases_applied).');
             }
 
+            // Lat/Lng: explizit oder per Geocoding-Lookup
+            $latitude  = isset($arguments['latitude'])  && $arguments['latitude']  !== '' ? (float) $arguments['latitude']  : null;
+            $longitude = isset($arguments['longitude']) && $arguments['longitude'] !== '' ? (float) $arguments['longitude'] : null;
+            $shouldGeocode = (bool) ($arguments['geocode'] ?? true);
+            $geocodeResult = null;
+            if ($shouldGeocode
+                && !empty($arguments['adresse'])
+                && $latitude === null
+                && $longitude === null
+            ) {
+                $geocodeResult = app(GeocodingService::class)->geocodeBest((string) $arguments['adresse']);
+                if ($geocodeResult !== null) {
+                    $latitude  = $geocodeResult['lat'];
+                    $longitude = $geocodeResult['lng'];
+                    $aliases[] = 'adresse:geocoded->lat/lng';
+                }
+            }
+
             $location = Location::create([
                 'team_id'          => $teamId,
                 'user_id'          => $context->user->id,
@@ -167,6 +200,8 @@ class CreateLocationTool implements ToolContract, ToolMetadataContract
                 'pax_max'          => isset($arguments['pax_max']) ? (int) $arguments['pax_max'] : null,
                 'mehrfachbelegung' => (bool) ($arguments['mehrfachbelegung'] ?? false),
                 'adresse'          => $arguments['adresse'] ?? null,
+                'latitude'         => $latitude,
+                'longitude'        => $longitude,
                 'groesse_qm'       => isset($arguments['groesse_qm']) ? (float) $arguments['groesse_qm'] : null,
                 'hallennummer'     => isset($arguments['hallennummer']) ? mb_substr((string) $arguments['hallennummer'], 0, 30) : null,
                 'barrierefrei'     => (bool) ($arguments['barrierefrei'] ?? false),
@@ -179,6 +214,21 @@ class CreateLocationTool implements ToolContract, ToolMetadataContract
             $known = array_merge(self::KNOWN_FIELDS, array_keys($this->aliasMapForDiff()));
             $ignored = array_values(array_diff(array_keys($arguments), $known));
 
+            // Geocoding-Diagnose
+            $geocodingInfo = null;
+            if ($shouldGeocode && !empty($arguments['adresse']) && $geocodeResult === null
+                && !isset($arguments['latitude']) && !isset($arguments['longitude'])) {
+                $geocodingInfo = [
+                    'status'  => 'no_match',
+                    'message' => 'Nominatim hat keinen Treffer geliefert. Lat/Lng bleiben null. Adresse pruefen oder Lat/Lng manuell setzen.',
+                ];
+            } elseif ($geocodeResult !== null) {
+                $geocodingInfo = [
+                    'status'  => 'matched',
+                    'display' => $geocodeResult['display'],
+                ];
+            }
+
             return ToolResult::success([
                 'id'               => $location->id,
                 'uuid'             => $location->uuid,
@@ -189,6 +239,8 @@ class CreateLocationTool implements ToolContract, ToolMetadataContract
                 'pax_max'          => $location->pax_max,
                 'mehrfachbelegung' => (bool) $location->mehrfachbelegung,
                 'adresse'          => $location->adresse,
+                'latitude'         => $location->latitude !== null ? (float) $location->latitude : null,
+                'longitude'        => $location->longitude !== null ? (float) $location->longitude : null,
                 'groesse_qm'       => $location->groesse_qm !== null ? (float) $location->groesse_qm : null,
                 'hallennummer'     => $location->hallennummer,
                 'barrierefrei'     => (bool) $location->barrierefrei,
@@ -199,6 +251,7 @@ class CreateLocationTool implements ToolContract, ToolMetadataContract
                 'team_id'          => $location->team_id,
                 'aliases_applied'  => $aliases,
                 'ignored_fields'   => $ignored,
+                'geocoding'        => $geocodingInfo,
                 'empty_recommended_fields'        => $this->emptyRecommendedLocationFields($location),
                 'empty_recommended_field_options' => $this->recommendedLocationFieldOptions($location->team_id),
                 'message'          => "Location '{$location->name}' erfolgreich erstellt.",

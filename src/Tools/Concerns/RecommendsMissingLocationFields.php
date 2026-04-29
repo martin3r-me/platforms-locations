@@ -26,7 +26,7 @@ trait RecommendsMissingLocationFields
             $missing['pax_max'] = 'Maximale Kapazitaet (inkl. Personal). Wichtig fuer Buchungs-Validierung im Events-Modul.';
         }
         if (empty($location->adresse) || $location->latitude === null || $location->longitude === null) {
-            $missing['adresse'] = 'Adresse + Koordinaten (Lat/Lng). Adress-Eingabe ueber Nominatim setzt beides automatisch.';
+            $missing['adresse'] = 'Adresse + Koordinaten (Lat/Lng). Bei Eingabe via Tool (POST/PATCH) wird die Adresse automatisch via Nominatim geocoded — siehe geocoding-Feld im Response. In der Manage-UI wird sie beim Auswaehlen eines Vorschlags gesetzt.';
         }
         if (empty($location->groesse_qm)) {
             $missing['groesse_qm'] = 'Groesse in qm. Hilft bei Filter-Suche und Angebotstexten.';

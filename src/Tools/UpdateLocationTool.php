@@ -7,6 +7,7 @@ use Platform\Core\Contracts\ToolContext;
 use Platform\Core\Contracts\ToolResult;
 use Platform\Core\Contracts\ToolMetadataContract;
 use Platform\Locations\Models\Location;
+use Platform\Locations\Services\GeocodingService;
 use Platform\Locations\Tools\Concerns\NormalizesLocationFields;
 use Platform\Locations\Tools\Concerns\RecommendsMissingLocationFields;
 
@@ -22,9 +23,10 @@ class UpdateLocationTool implements ToolContract, ToolMetadataContract
     protected const KNOWN_FIELDS = [
         'location_id', 'uuid',
         'name', 'kuerzel', 'gruppe', 'pax_min', 'pax_max',
-        'mehrfachbelegung', 'adresse', 'sort_order',
+        'mehrfachbelegung', 'adresse', 'latitude', 'longitude', 'sort_order',
         'groesse_qm', 'hallennummer', 'barrierefrei',
         'besonderheit', 'beschreibung', 'anlaesse',
+        'geocode',
     ];
 
     public function getName(): string
@@ -34,7 +36,7 @@ class UpdateLocationTool implements ToolContract, ToolMetadataContract
 
     public function getDescription(): string
     {
-        return 'PATCH /locations/{id} - Aktualisiert eine Location. REST-Parameter: location_id (integer) ODER uuid (string) - mindestens einer. Übrige Felder optional: name, kuerzel, gruppe, pax_min, pax_max (max inkl. Personal), mehrfachbelegung, adresse, sort_order, groesse_qm, hallennummer, barrierefrei, besonderheit (kurz), beschreibung (langer Marketing-/Historie-Fließtext), anlaesse (Array). Nur übergebene Werte werden geändert.';
+        return 'PATCH /locations/{id} - Aktualisiert eine Location. REST-Parameter: location_id (integer) ODER uuid (string) - mindestens einer. Übrige Felder optional: name, kuerzel, gruppe, pax_min, pax_max (max inkl. Personal), mehrfachbelegung, adresse (Aenderung triggert per Default einen Nominatim-Geocode -> Lat/Lng werden neu gesetzt; mit geocode=false oder explizitem latitude/longitude wird der Lookup uebersprungen), latitude, longitude, sort_order, groesse_qm, hallennummer, barrierefrei, besonderheit (kurz), beschreibung (langer Marketing-/Historie-Fließtext), anlaesse (Array), geocode (boolean, Default true). Nur übergebene Werte werden geändert.';
     }
 
     public function getSchema(): array
@@ -56,7 +58,10 @@ class UpdateLocationTool implements ToolContract, ToolMetadataContract
                 'pax_min' => ['type' => 'integer', 'description' => 'Optional: Neue Mindestbelegung.'],
                 'pax_max' => ['type' => 'integer', 'description' => 'Optional: Neue Kapazität (inkl. Personal).'],
                 'mehrfachbelegung' => ['type' => 'boolean', 'description' => 'Optional: Mehrfachbelegung erlaubt ja/nein.'],
-                'adresse' => ['type' => 'string', 'description' => 'Optional: Neue Adresse.'],
+                'adresse' => ['type' => 'string', 'description' => 'Optional: Neue Adresse. Bei Aenderung wird per Default via Nominatim geocoded und Lat/Lng neu gesetzt. Mit geocode=false oder expliziten latitude/longitude wird der Lookup uebersprungen.'],
+                'latitude' => ['type' => 'number', 'description' => 'Optional: WGS84-Breitengrad. Wenn explizit mitgegeben, wird kein Geocoding ausgefuehrt.'],
+                'longitude' => ['type' => 'number', 'description' => 'Optional: WGS84-Laengengrad. Wenn explizit mitgegeben, wird kein Geocoding ausgefuehrt.'],
+                'geocode' => ['type' => 'boolean', 'description' => 'Optional (Default true): false unterdrueckt den Nominatim-Lookup beim Setzen einer neuen Adresse.'],
                 'sort_order' => ['type' => 'integer', 'description' => 'Optional: Sortierreihenfolge.'],
                 'groesse_qm' => ['type' => 'number', 'description' => 'Optional: Größe in qm.'],
                 'hallennummer' => ['type' => 'string', 'description' => 'Optional: Hallennummer (max. 30).'],
@@ -144,11 +149,48 @@ class UpdateLocationTool implements ToolContract, ToolMetadataContract
                 }
             }
 
+            // Lat/Lng: explizit oder per Geocoding bei Adress-Aenderung
+            $latExplicit = array_key_exists('latitude', $arguments);
+            $lngExplicit = array_key_exists('longitude', $arguments);
+            if ($latExplicit) {
+                $update['latitude'] = $arguments['latitude'] !== null && $arguments['latitude'] !== ''
+                    ? (float) $arguments['latitude'] : null;
+            }
+            if ($lngExplicit) {
+                $update['longitude'] = $arguments['longitude'] !== null && $arguments['longitude'] !== ''
+                    ? (float) $arguments['longitude'] : null;
+            }
+
+            $shouldGeocode = (bool) ($arguments['geocode'] ?? true);
+            $geocodeResult = null;
+            $newAddress = array_key_exists('adresse', $arguments) ? $arguments['adresse'] : null;
+            if ($shouldGeocode
+                && $newAddress !== null
+                && $newAddress !== ''
+                && !$latExplicit
+                && !$lngExplicit
+            ) {
+                $geocodeResult = app(GeocodingService::class)->geocodeBest((string) $newAddress);
+                if ($geocodeResult !== null) {
+                    $update['latitude']  = $geocodeResult['lat'];
+                    $update['longitude'] = $geocodeResult['lng'];
+                    $aliases[] = 'adresse:geocoded->lat/lng';
+                }
+            }
+
             if (empty($update)) {
                 return ToolResult::error('VALIDATION_ERROR', 'Keine Felder zum Aktualisieren übergeben.');
             }
 
             $location->update($update);
+
+            $geocodingInfo = null;
+            if ($shouldGeocode && $newAddress !== null && $newAddress !== ''
+                && !$latExplicit && !$lngExplicit) {
+                $geocodingInfo = $geocodeResult !== null
+                    ? ['status' => 'matched',  'display' => $geocodeResult['display']]
+                    : ['status' => 'no_match', 'message' => 'Nominatim hat keinen Treffer geliefert. Adresse wurde gespeichert, Lat/Lng unveraendert.'];
+            }
 
             $known = array_merge(self::KNOWN_FIELDS, array_keys($this->aliasMapForDiff()));
             $ignored = array_values(array_diff(array_keys($arguments), $known));
@@ -163,6 +205,8 @@ class UpdateLocationTool implements ToolContract, ToolMetadataContract
                 'pax_max'          => $location->pax_max,
                 'mehrfachbelegung' => (bool) $location->mehrfachbelegung,
                 'adresse'          => $location->adresse,
+                'latitude'         => $location->latitude !== null ? (float) $location->latitude : null,
+                'longitude'        => $location->longitude !== null ? (float) $location->longitude : null,
                 'sort_order'       => $location->sort_order,
                 'groesse_qm'       => $location->groesse_qm !== null ? (float) $location->groesse_qm : null,
                 'hallennummer'     => $location->hallennummer,
@@ -174,6 +218,7 @@ class UpdateLocationTool implements ToolContract, ToolMetadataContract
                 'updated_fields'   => array_keys($update),
                 'aliases_applied'  => $aliases,
                 'ignored_fields'   => $ignored,
+                'geocoding'        => $geocodingInfo,
                 'empty_recommended_fields'        => $this->emptyRecommendedLocationFields($location),
                 'empty_recommended_field_options' => $this->recommendedLocationFieldOptions($location->team_id),
                 'message'          => "Location '{$location->name}' erfolgreich aktualisiert.",
