@@ -6,11 +6,13 @@ use Platform\Core\Contracts\ToolContract;
 use Platform\Core\Contracts\ToolContext;
 use Platform\Core\Contracts\ToolResult;
 use Platform\Core\Contracts\ToolMetadataContract;
+use Platform\Locations\Tools\Concerns\RecommendsMissingLocationFields;
 use Platform\Locations\Tools\Concerns\ResolvesLocation;
 
 class ListLocationPricingsTool implements ToolContract, ToolMetadataContract
 {
     use ResolvesLocation;
+    use RecommendsMissingLocationFields;
 
     public function getName(): string
     {
@@ -52,10 +54,13 @@ class ListLocationPricingsTool implements ToolContract, ToolMetadataContract
                 'sort_order'     => (int) $p->sort_order,
             ])->all();
 
+            $hints = $this->recommendedSubEntityFieldOptions($location->team_id);
+
             return ToolResult::success([
-                'pricings' => $rows,
-                'total'    => count($rows),
-                'message'  => "Es wurden " . count($rows) . " Mietpreis(e) gefunden.",
+                'pricings'     => $rows,
+                'total'        => count($rows),
+                '_field_hints' => ['day_type_label' => $hints['day_type_label'] ?? null],
+                'message'      => "Es wurden " . count($rows) . " Mietpreis(e) gefunden.",
             ]);
         } catch (\Throwable $e) {
             return ToolResult::error('EXECUTION_ERROR', 'Fehler: ' . $e->getMessage());

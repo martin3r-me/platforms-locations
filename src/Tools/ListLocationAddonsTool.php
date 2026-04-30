@@ -6,11 +6,13 @@ use Platform\Core\Contracts\ToolContract;
 use Platform\Core\Contracts\ToolContext;
 use Platform\Core\Contracts\ToolResult;
 use Platform\Core\Contracts\ToolMetadataContract;
+use Platform\Locations\Tools\Concerns\RecommendsMissingLocationFields;
 use Platform\Locations\Tools\Concerns\ResolvesLocation;
 
 class ListLocationAddonsTool implements ToolContract, ToolMetadataContract
 {
     use ResolvesLocation;
+    use RecommendsMissingLocationFields;
 
     public function getName(): string
     {
@@ -58,10 +60,13 @@ class ListLocationAddonsTool implements ToolContract, ToolMetadataContract
                 'sort_order'     => (int) $r->sort_order,
             ])->all();
 
+            $hints = $this->recommendedSubEntityFieldOptions($location->team_id);
+
             return ToolResult::success([
-                'addons'  => $rows,
-                'total'   => count($rows),
-                'message' => "Es wurden " . count($rows) . " Add-on(s) gefunden.",
+                'addons'       => $rows,
+                'total'        => count($rows),
+                '_field_hints' => ['unit' => $hints['unit'] ?? null],
+                'message'      => "Es wurden " . count($rows) . " Add-on(s) gefunden.",
             ]);
         } catch (\Throwable $e) {
             return ToolResult::error('EXECUTION_ERROR', 'Fehler: ' . $e->getMessage());
