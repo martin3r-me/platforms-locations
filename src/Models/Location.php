@@ -8,14 +8,17 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
+use Platform\ActivityLog\Traits\LogsActivity;
+use Platform\Core\Contracts\HasFileContext;
+use Platform\Core\Traits\HasContextFileReferences;
 use Symfony\Component\Uid\UuidV7;
 
 /**
  * @ai.description Eine Location/Raum als Stammdatensatz. Enthält Kapazitäten, Gruppe, Adresse und Kürzel und dient als buchbare Einheit.
  */
-class Location extends Model
+class Location extends Model implements HasFileContext
 {
-    use SoftDeletes;
+    use SoftDeletes, LogsActivity, HasContextFileReferences;
 
     protected $table = 'locations_locations';
 
@@ -23,6 +26,7 @@ class Location extends Model
         'uuid',
         'user_id',
         'team_id',
+        'site_id',
         'name',
         'kuerzel',
         'gruppe',
@@ -43,6 +47,7 @@ class Location extends Model
 
     protected $casts = [
         'uuid' => 'string',
+        'site_id' => 'integer',
         'pax_min' => 'integer',
         'pax_max' => 'integer',
         'mehrfachbelegung' => 'boolean',
@@ -82,9 +87,26 @@ class Location extends Model
         return $this->belongsTo(\Platform\Core\Models\Team::class);
     }
 
+    public function site(): BelongsTo
+    {
+        return $this->belongsTo(LocationSite::class, 'site_id');
+    }
+
     public function scopeForTeam($query, $teamId)
     {
         return $query->where('team_id', $teamId);
+    }
+
+    // ================= HasFileContext =================
+
+    public function getFileContextType(): string
+    {
+        return self::class;
+    }
+
+    public function getFileContextId(): int
+    {
+        return $this->id;
     }
 
     // ================= Grundriss (public API fuer andere Module) =================

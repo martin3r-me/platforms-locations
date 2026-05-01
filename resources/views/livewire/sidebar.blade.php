@@ -18,6 +18,10 @@
             @svg('heroicon-o-building-office', 'w-4 h-4 text-[var(--ui-secondary)]')
             <span class="ml-2 text-sm">Locations</span>
         </x-ui-sidebar-item>
+        <x-ui-sidebar-item :href="route('locations.sites')">
+            @svg('heroicon-o-building-library', 'w-4 h-4 text-[var(--ui-secondary)]')
+            <span class="ml-2 text-sm">Sites</span>
+        </x-ui-sidebar-item>
     </x-ui-sidebar-list>
 
     {{-- Abschnitt: Auswertung --}}
@@ -36,6 +40,9 @@
             </a>
             <a href="{{ route('locations.manage') }}" wire:navigate class="flex items-center justify-center p-2 rounded-md text-[var(--ui-secondary)] hover:bg-[var(--ui-muted-5)]" title="Locations">
                 @svg('heroicon-o-building-office', 'w-5 h-5')
+            </a>
+            <a href="{{ route('locations.sites') }}" wire:navigate class="flex items-center justify-center p-2 rounded-md text-[var(--ui-secondary)] hover:bg-[var(--ui-muted-5)]" title="Sites">
+                @svg('heroicon-o-building-library', 'w-5 h-5')
             </a>
             <a href="{{ route('locations.occupancy') }}" wire:navigate class="flex items-center justify-center p-2 rounded-md text-[var(--ui-secondary)] hover:bg-[var(--ui-muted-5)]" title="Auslastung">
                 @svg('heroicon-o-chart-bar', 'w-5 h-5')

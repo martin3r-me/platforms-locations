@@ -154,6 +154,8 @@ class LocationAssetService
      * eindeutigen Token als Dateinamen, Single-Kategorien (derzeit keine in
      * diesem Service — Grundriss laeuft separat) wuerden vorher bereinigen.
      *
+     * @deprecated Neue Uploads ueber ContextFileService. Diese Methode bleibt nur fuer Legacy-Kompatibilitaet.
+     *
      * @return array{path:string, filename:string, url:?string}
      *
      * @throws \InvalidArgumentException bei Validierungs-Fehlern
@@ -202,6 +204,8 @@ class LocationAssetService
 
     /**
      * Loescht eine konkrete Datei einer Kategorie (per filename).
+     *
+     * @deprecated Neue Dateien ueber ContextFileService loeschen. Diese Methode bleibt fuer Legacy-S3-Dateien.
      */
     public function delete(Location $location, string $category, string $filename): bool
     {

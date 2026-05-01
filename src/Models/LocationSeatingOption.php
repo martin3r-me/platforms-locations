@@ -5,6 +5,7 @@ namespace Platform\Locations\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Platform\ActivityLog\Traits\LogsActivity;
 use Symfony\Component\Uid\UuidV7;
 
 /**
@@ -12,7 +13,7 @@ use Symfony\Component\Uid\UuidV7;
  */
 class LocationSeatingOption extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, LogsActivity;
 
     protected $table = 'locations_seating_options';
 

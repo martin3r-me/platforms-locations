@@ -8,10 +8,13 @@ use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
 use Livewire\WithFileUploads;
+use Platform\Core\Models\ContextFileReference;
+use Platform\Core\Services\ContextFileService;
 use Platform\Locations\Models\Location;
 use Platform\Locations\Models\LocationAddon;
 use Platform\Locations\Models\LocationPricing;
 use Platform\Locations\Models\LocationSeatingOption;
+use Platform\Locations\Models\LocationSite;
 use Platform\Locations\Services\GeocodingService;
 use Platform\Locations\Services\LocationAssetService;
 
@@ -60,6 +63,10 @@ class Show extends Component
     /** @var array<int,array<string,mixed>> */
     public array $addressSuggestions = [];
 
+    // ==== Site-Zuordnung ====
+
+    public ?int $site_id = null;
+
     // ==== Erweiterte Stammdaten ====
 
     #[Validate('nullable|numeric|min:0|max:999999.99')]
@@ -102,28 +109,27 @@ class Show extends Component
     /** @var array<int, array{article_number:string, name:string, group_name:?string, mwst:string, vk:float, ek:float}> */
     public array $articleSearchResults = [];
 
-    // ==== Asset-Uploads (Multi pro Kategorie, S3, ohne DB) ====
+    // ==== ContextFile-basierte Assets ====
 
-    /** @var array<int, \Livewire\Features\SupportFileUploads\TemporaryUploadedFile> */
-    public array $newBuffetFiles = [];
+    /** @var array<string, array<int, array>> ContextFile-References gruppiert nach category */
+    public array $fileReferences = [];
 
-    /** @var array<int, \Livewire\Features\SupportFileUploads\TemporaryUploadedFile> */
-    public array $newSeatingPlanFiles = [];
-
-    /** @var array<int, \Livewire\Features\SupportFileUploads\TemporaryUploadedFile> */
-    public array $newPhotosWithSeatingFiles = [];
-
-    /** @var array<int, \Livewire\Features\SupportFileUploads\TemporaryUploadedFile> */
-    public array $newPhotosEmptyFiles = [];
+    /** Temporaerer Upload-Buffer */
+    public $newUploadFiles = [];
 
     public bool $uploadingAssets = false;
 
+    // ==== Legacy-Asset-Dateien (S3, ohne DB) — Read-Only Fallback ====
+
     /**
-     * Cache der aktuell hinterlegten Asset-Dateien je Kategorie.
-     *
      * @var array<string, array<int, array{path:string, filename:string, size:int, mime:string, url:?string, is_image:bool, is_pdf:bool, extension:string}>>
      */
-    public array $assetFiles = [];
+    public array $legacyAssetFiles = [];
+
+    // ==== Activity Log ====
+
+    /** @var array<int, array> */
+    public array $activityItems = [];
 
     public function mount(string $location): void
     {
@@ -151,6 +157,8 @@ class Show extends Component
         $this->longitude        = $loc->longitude !== null ? (float) $loc->longitude : null;
         $this->addressSuggestions = [];
 
+        $this->site_id = $loc->site_id;
+
         $this->groesse_qm    = $loc->groesse_qm !== null ? (float) $loc->groesse_qm : null;
         $this->hallennummer  = $loc->hallennummer;
         $this->barrierefrei  = (bool) $loc->barrierefrei;
@@ -160,7 +168,9 @@ class Show extends Component
 
         $this->refreshGrundrissState($loc->uuid);
         $this->loadSubRows($loc);
-        $this->refreshAssetFiles($loc);
+        $this->loadFileReferences();
+        $this->loadLegacyAssetFiles($loc);
+        $this->loadActivityItems();
 
         $this->resetErrorBag();
     }
@@ -221,6 +231,7 @@ class Show extends Component
 
         $data['mehrfachbelegung'] = (bool) $this->mehrfachbelegung;
         $data['barrierefrei']     = (bool) $this->barrierefrei;
+        $data['site_id']          = $this->site_id ?: null;
 
         DB::transaction(function () use ($data) {
             $this->location->update($data);
@@ -576,78 +587,169 @@ class Show extends Component
         }
     }
 
-    // ================= Asset-Uploads (S3, ohne DB) =================
+    // ================= ContextFile-basierte Assets =================
 
-    public function updatedNewBuffetFiles(): void
+    /**
+     * Asset-Kategorien die über ContextFile laufen.
+     */
+    public const FILE_CATEGORIES = [
+        'buffet'              => ['label' => 'Buffetstationen',          'accept' => '.pdf,.png,.jpg,.jpeg,.webp', 'hint' => 'PDF, PNG, JPG oder WEBP, max. 20 MB pro Datei.'],
+        'seating_plans'       => ['label' => 'Bestuhlungspläne',         'accept' => '.pdf,.png,.jpg,.jpeg,.webp', 'hint' => 'PDF, PNG, JPG oder WEBP, max. 20 MB pro Datei.'],
+        'photos_with_seating' => ['label' => 'Fotos mit Bestuhlung',     'accept' => '.png,.jpg,.jpeg,.webp',      'hint' => 'PNG, JPG oder WEBP, max. 15 MB pro Foto.'],
+        'photos_empty'        => ['label' => 'Fotos (leere Location)',   'accept' => '.png,.jpg,.jpeg,.webp',      'hint' => 'PNG, JPG oder WEBP, max. 15 MB pro Foto.'],
+        'grundriss'           => ['label' => 'Grundriss',                'accept' => '.pdf,.png,.jpg,.jpeg,.webp', 'hint' => 'PDF, PNG, JPG oder WEBP, max. 20 MB.'],
+    ];
+
+    protected function loadFileReferences(): void
     {
-        $this->processAssetUploads(LocationAssetService::CATEGORY_BUFFET, 'newBuffetFiles');
+        $this->fileReferences = [];
+
+        try {
+            $refs = $this->location->getOrderedFileReferences();
+
+            foreach ($refs as $ref) {
+                $category = $ref->meta['category'] ?? 'uncategorized';
+                $this->fileReferences[$category][] = [
+                    'id'        => $ref->id,
+                    'uuid'      => $ref->uuid,
+                    'title'     => $ref->title ?? $ref->contextFile?->original_name ?? '',
+                    'url'       => $ref->url,
+                    'thumbnail' => $ref->thumbnail_url,
+                    'is_image'  => $ref->contextFile?->isImage() ?? false,
+                    'meta'      => $ref->meta ?? [],
+                ];
+            }
+        } catch (\Throwable $e) {
+            // ContextFile-System ggf. nicht verfuegbar
+        }
     }
 
-    public function updatedNewSeatingPlanFiles(): void
+    public function uploadFiles(string $category): void
     {
-        $this->processAssetUploads(LocationAssetService::CATEGORY_SEATING_PLANS, 'newSeatingPlanFiles');
-    }
-
-    public function updatedNewPhotosWithSeatingFiles(): void
-    {
-        $this->processAssetUploads(LocationAssetService::CATEGORY_PHOTOS_WITH_SEATS, 'newPhotosWithSeatingFiles');
-    }
-
-    public function updatedNewPhotosEmptyFiles(): void
-    {
-        $this->processAssetUploads(LocationAssetService::CATEGORY_PHOTOS_EMPTY, 'newPhotosEmptyFiles');
-    }
-
-    protected function processAssetUploads(string $category, string $property): void
-    {
-        $files = $this->{$property};
+        $files = $this->newUploadFiles;
         if (!is_array($files) || empty($files)) {
             return;
         }
 
-        $service = app(LocationAssetService::class);
-        $cfg = LocationAssetService::categoryConfig($category);
-
         $this->uploadingAssets = true;
+
         try {
+            $service = app(ContextFileService::class);
+            $team = Auth::user()->currentTeam;
+
             foreach ($files as $file) {
                 if (!$file) continue;
+
                 try {
-                    $service->upload($this->location, $category, $file);
-                } catch (\InvalidArgumentException $e) {
-                    $this->addError($property, "[{$cfg['label']}] " . $e->getMessage());
+                    $contextFile = $service->uploadForContext(
+                        $file,
+                        $this->location->getFileContextType(),
+                        $this->location->getFileContextId(),
+                        [
+                            'team_id' => $team->id,
+                            'user_id' => Auth::id(),
+                        ],
+                    );
+
+                    $this->location->addFileReference($contextFile['id'], [
+                        'category' => $category,
+                        'title'    => $file->getClientOriginalName(),
+                    ]);
                 } catch (\Throwable $e) {
-                    \Log::error('[Locations] Asset-Upload fehlgeschlagen', [
+                    \Log::error('[Locations] ContextFile-Upload fehlgeschlagen', [
                         'category' => $category,
                         'error'    => $e->getMessage(),
                         'location_uuid' => $this->location->uuid,
                     ]);
-                    $this->addError($property, "[{$cfg['label']}] Upload fehlgeschlagen: " . $e->getMessage());
+                    $this->addError('newUploadFiles', 'Upload fehlgeschlagen: ' . $e->getMessage());
                 }
             }
         } finally {
-            $this->{$property} = [];
+            $this->newUploadFiles = [];
             $this->uploadingAssets = false;
-            $this->refreshAssetFiles($this->location);
+            $this->loadFileReferences();
         }
     }
 
-    public function deleteAssetFile(string $category, string $filename): void
+    public function deleteFile(int $referenceId): void
+    {
+        try {
+            $ref = ContextFileReference::where('id', $referenceId)
+                ->where('reference_type', Location::class)
+                ->where('reference_id', $this->location->id)
+                ->first();
+
+            if ($ref) {
+                if ($ref->context_file_id) {
+                    app(ContextFileService::class)->delete($ref->context_file_id);
+                }
+                $this->location->removeFileReference($referenceId);
+            }
+        } catch (\Throwable $e) {
+            \Log::error('[Locations] ContextFile-Löschen fehlgeschlagen', [
+                'error' => $e->getMessage(),
+                'reference_id' => $referenceId,
+            ]);
+        }
+
+        $this->loadFileReferences();
+    }
+
+    // ================= Legacy-Asset-Fallback (S3, read-only) =================
+
+    protected function loadLegacyAssetFiles(Location $location): void
+    {
+        $service = app(LocationAssetService::class);
+        $this->legacyAssetFiles = [];
+        foreach (array_keys(LocationAssetService::categories()) as $cat) {
+            $files = $service->listFiles($location, $cat)->all();
+            if (!empty($files)) {
+                $this->legacyAssetFiles[$cat] = $files;
+            }
+        }
+    }
+
+    /**
+     * @deprecated Nur fuer Legacy-S3-Dateien. Neue Dateien ueber deleteFile().
+     */
+    public function deleteLegacyAssetFile(string $category, string $filename): void
     {
         if (!LocationAssetService::isValidCategory($category)) return;
 
         $service = app(LocationAssetService::class);
         $service->delete($this->location, $category, $filename);
 
-        $this->refreshAssetFiles($this->location);
+        $this->loadLegacyAssetFiles($this->location);
     }
 
-    protected function refreshAssetFiles(Location $location): void
+    // ================= Activity Log =================
+
+    protected function loadActivityItems(): void
     {
-        $service = app(LocationAssetService::class);
-        $this->assetFiles = [];
-        foreach (array_keys(LocationAssetService::categories()) as $cat) {
-            $this->assetFiles[$cat] = $service->listFiles($location, $cat)->all();
+        $this->activityItems = [];
+
+        try {
+            $activities = $this->location->activities()
+                ->with('user')
+                ->latest()
+                ->take(30)
+                ->get();
+
+            $this->activityItems = $activities->map(function ($activity) {
+                return [
+                    'id'         => $activity->id,
+                    'type'       => $activity->activity_type,
+                    'name'       => $activity->name,
+                    'message'    => $activity->message,
+                    'user_name'  => $activity->user?->name ?? 'System',
+                    'user_email' => $activity->user?->email,
+                    'properties' => $activity->properties ?? [],
+                    'created_at' => $activity->created_at?->diffForHumans(),
+                    'created_at_full' => $activity->created_at?->format('d.m.Y H:i'),
+                ];
+            })->all();
+        } catch (\Throwable $e) {
+            // ActivityLog ggf. nicht verfuegbar
         }
     }
 
@@ -767,10 +869,16 @@ class Show extends Component
         $allLocations = Location::where('team_id', $team->id)
             ->orderBy('sort_order')
             ->orderBy('name')
-            ->get(['uuid', 'name', 'kuerzel']);
+            ->get(['uuid', 'name', 'kuerzel', 'site_id']);
+
+        $allSites = LocationSite::where('team_id', $team->id)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get(['id', 'name']);
 
         return view('locations::livewire.show', [
             'allLocations' => $allLocations,
+            'allSites'     => $allSites,
         ])->layout('platform::layouts.app');
     }
 }

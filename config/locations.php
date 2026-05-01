@@ -58,6 +58,11 @@ return [
                     'route' => 'locations.manage',
                     'icon'  => 'heroicon-o-building-office',
                 ],
+                [
+                    'label' => 'Sites',
+                    'route' => 'locations.sites',
+                    'icon'  => 'heroicon-o-building-library',
+                ],
             ],
         ],
         [

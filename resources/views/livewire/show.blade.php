@@ -47,23 +47,110 @@
     <x-slot name="sidebar">
         <x-ui-page-sidebar title="Locations" width="w-72" :defaultOpen="true">
             <div class="p-3 space-y-1">
-                @foreach($allLocations as $loc)
-                    <a href="{{ route('locations.show', $loc->uuid) }}" wire:navigate
-                       class="flex items-center gap-2 px-3 py-2 rounded-md text-xs transition-colors
-                           {{ $currentUuid === $loc->uuid
-                               ? 'bg-[var(--ui-primary)]/10 text-[var(--ui-primary)] font-semibold'
-                               : 'text-[var(--ui-secondary)] hover:bg-[var(--ui-muted-5)]' }}">
-                        <span class="font-mono font-bold text-[0.6rem] px-1.5 py-0.5 rounded bg-[var(--ui-muted-5)] border border-[var(--ui-border)]/60 uppercase">{{ $loc->kuerzel }}</span>
-                        <span class="truncate">{{ $loc->name }}</span>
-                    </a>
-                @endforeach
+                @php
+                    $siteGroups = collect($allLocations)->groupBy('site_id');
+                    $hasSites = $allSites->isNotEmpty();
+                @endphp
+
+                @if($hasSites)
+                    {{-- Locations nach Site gruppiert --}}
+                    @foreach($allSites as $site)
+                        @php $siteLocs = $siteGroups->get($site->id, collect()); @endphp
+                        @if($siteLocs->isNotEmpty())
+                            <div class="pt-2 first:pt-0">
+                                <div class="px-3 py-1 text-[0.6rem] font-bold uppercase tracking-wider text-[var(--ui-muted)]">
+                                    {{ $site->name }}
+                                </div>
+                                @foreach($siteLocs as $loc)
+                                    <a href="{{ route('locations.show', $loc->uuid) }}" wire:navigate
+                                       class="flex items-center gap-2 px-3 py-2 rounded-md text-xs transition-colors ml-2
+                                           {{ $currentUuid === $loc->uuid
+                                               ? 'bg-[var(--ui-primary)]/10 text-[var(--ui-primary)] font-semibold'
+                                               : 'text-[var(--ui-secondary)] hover:bg-[var(--ui-muted-5)]' }}">
+                                        <span class="font-mono font-bold text-[0.6rem] px-1.5 py-0.5 rounded bg-[var(--ui-muted-5)] border border-[var(--ui-border)]/60 uppercase">{{ $loc->kuerzel }}</span>
+                                        <span class="truncate">{{ $loc->name }}</span>
+                                    </a>
+                                @endforeach
+                            </div>
+                        @endif
+                    @endforeach
+
+                    {{-- Locations ohne Site --}}
+                    @php $unsitedLocs = $siteGroups->get('', collect())->merge($siteGroups->get(null, collect())); @endphp
+                    @if($unsitedLocs->isNotEmpty())
+                        <div class="pt-2">
+                            <div class="px-3 py-1 text-[0.6rem] font-bold uppercase tracking-wider text-[var(--ui-muted)]">
+                                Ohne Site
+                            </div>
+                            @foreach($unsitedLocs as $loc)
+                                <a href="{{ route('locations.show', $loc->uuid) }}" wire:navigate
+                                   class="flex items-center gap-2 px-3 py-2 rounded-md text-xs transition-colors ml-2
+                                       {{ $currentUuid === $loc->uuid
+                                           ? 'bg-[var(--ui-primary)]/10 text-[var(--ui-primary)] font-semibold'
+                                           : 'text-[var(--ui-secondary)] hover:bg-[var(--ui-muted-5)]' }}">
+                                    <span class="font-mono font-bold text-[0.6rem] px-1.5 py-0.5 rounded bg-[var(--ui-muted-5)] border border-[var(--ui-border)]/60 uppercase">{{ $loc->kuerzel }}</span>
+                                    <span class="truncate">{{ $loc->name }}</span>
+                                </a>
+                            @endforeach
+                        </div>
+                    @endif
+                @else
+                    {{-- Keine Sites: flache Liste wie bisher --}}
+                    @foreach($allLocations as $loc)
+                        <a href="{{ route('locations.show', $loc->uuid) }}" wire:navigate
+                           class="flex items-center gap-2 px-3 py-2 rounded-md text-xs transition-colors
+                               {{ $currentUuid === $loc->uuid
+                                   ? 'bg-[var(--ui-primary)]/10 text-[var(--ui-primary)] font-semibold'
+                                   : 'text-[var(--ui-secondary)] hover:bg-[var(--ui-muted-5)]' }}">
+                            <span class="font-mono font-bold text-[0.6rem] px-1.5 py-0.5 rounded bg-[var(--ui-muted-5)] border border-[var(--ui-border)]/60 uppercase">{{ $loc->kuerzel }}</span>
+                            <span class="truncate">{{ $loc->name }}</span>
+                        </a>
+                    @endforeach
+                @endif
             </div>
         </x-ui-page-sidebar>
     </x-slot>
 
     <x-slot name="activity">
         <x-ui-page-sidebar title="Aktivitäten" width="w-80" :defaultOpen="false" storeKey="activityOpen" side="right">
-            <div class="p-6 text-sm text-[var(--ui-muted)]">Keine Aktivitäten verfügbar</div>
+            @if(empty($activityItems))
+                <div class="p-6 text-sm text-[var(--ui-muted)]">Keine Aktivitäten verfügbar</div>
+            @else
+                <div class="p-3 space-y-3">
+                    @foreach($activityItems as $act)
+                        <div class="flex items-start gap-2 text-[0.65rem]">
+                            <div class="w-6 h-6 rounded-full bg-[var(--ui-muted-5)] border border-[var(--ui-border)] flex items-center justify-center flex-shrink-0 mt-0.5">
+                                @svg('heroicon-o-user', 'w-3 h-3 text-[var(--ui-muted)]')
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-1">
+                                    <span class="font-semibold text-[var(--ui-secondary)]">{{ $act['user_name'] }}</span>
+                                    <span class="text-[var(--ui-muted)]" title="{{ $act['created_at_full'] ?? '' }}">{{ $act['created_at'] }}</span>
+                                </div>
+                                @if(!empty($act['message']))
+                                    <p class="text-[var(--ui-secondary)] mt-0.5">{{ $act['message'] }}</p>
+                                @else
+                                    <p class="text-[var(--ui-muted)] mt-0.5">
+                                        @switch($act['name'])
+                                            @case('created') Location erstellt @break
+                                            @case('updated')
+                                                Location aktualisiert
+                                                @if(!empty($act['properties']))
+                                                    <span class="text-[0.58rem]">
+                                                        ({{ implode(', ', array_keys($act['properties'])) }})
+                                                    </span>
+                                                @endif
+                                                @break
+                                            @case('deleted') Location gelöscht @break
+                                            @default {{ $act['name'] }}
+                                        @endswitch
+                                    </p>
+                                @endif
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
         </x-ui-page-sidebar>
     </x-slot>
 
@@ -88,10 +175,22 @@
                         </div>
                     </div>
 
-                    <div>
-                        <label class="text-[0.65rem] font-semibold text-[var(--ui-muted)] block mb-1">Gruppe</label>
-                        <input wire:model="gruppe" type="text" placeholder="z.B. Hauptgebäude"
-                               class="w-full border border-[var(--ui-border)] rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/30">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="text-[0.65rem] font-semibold text-[var(--ui-muted)] block mb-1">Gruppe</label>
+                            <input wire:model="gruppe" type="text" placeholder="z.B. Hauptgebäude"
+                                   class="w-full border border-[var(--ui-border)] rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/30">
+                        </div>
+                        <div>
+                            <label class="text-[0.65rem] font-semibold text-[var(--ui-muted)] block mb-1">Site (Standort)</label>
+                            <select wire:model="site_id"
+                                    class="w-full border border-[var(--ui-border)] rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/30">
+                                <option value="">— Kein Site —</option>
+                                @foreach($allSites as $site)
+                                    <option value="{{ $site->id }}">{{ $site->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
                     </div>
 
                     <div class="grid grid-cols-2 gap-3">
@@ -442,30 +541,79 @@
                 </div>
             </x-ui-panel>
 
-            {{-- ===== Panel: Weitere Assets ===== --}}
+            {{-- ===== Panel: Weitere Assets (ContextFile-basiert) ===== --}}
             <x-ui-panel title="Weitere Assets" subtitle="Buffetstationen, Bestuhlungspläne, Fotos">
                 @php
                     $assetSections = [
-                        ['cat' => 'buffet',              'label' => 'Buffetstationen',         'prop' => 'newBuffetFiles',           'accept' => '.pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp', 'hint' => 'PDF, PNG, JPG oder WEBP, max. 20 MB pro Datei. Mehrfachauswahl möglich.'],
-                        ['cat' => 'seating_plans',       'label' => 'Bestuhlungspläne',        'prop' => 'newSeatingPlanFiles',      'accept' => '.pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp', 'hint' => 'PDF, PNG, JPG oder WEBP, max. 20 MB pro Datei.'],
-                        ['cat' => 'photos_with_seating', 'label' => 'Fotos mit Bestuhlung',    'prop' => 'newPhotosWithSeatingFiles','accept' => '.png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp',                       'hint' => 'PNG, JPG oder WEBP, max. 15 MB pro Foto.'],
-                        ['cat' => 'photos_empty',        'label' => 'Fotos der leeren Location','prop' => 'newPhotosEmptyFiles',     'accept' => '.png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp',                       'hint' => 'PNG, JPG oder WEBP, max. 15 MB pro Foto.'],
+                        ['cat' => 'buffet',              'label' => 'Buffetstationen',          'accept' => '.pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp', 'hint' => 'PDF, PNG, JPG oder WEBP, max. 20 MB pro Datei. Mehrfachauswahl möglich.'],
+                        ['cat' => 'seating_plans',       'label' => 'Bestuhlungspläne',         'accept' => '.pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp', 'hint' => 'PDF, PNG, JPG oder WEBP, max. 20 MB pro Datei.'],
+                        ['cat' => 'photos_with_seating', 'label' => 'Fotos mit Bestuhlung',     'accept' => '.png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp',                       'hint' => 'PNG, JPG oder WEBP, max. 15 MB pro Foto.'],
+                        ['cat' => 'photos_empty',        'label' => 'Fotos der leeren Location','accept' => '.png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp',                       'hint' => 'PNG, JPG oder WEBP, max. 15 MB pro Foto.'],
                     ];
                 @endphp
 
                 <div class="space-y-4 p-1">
                     @foreach($assetSections as $sec)
-                        @php $files = $assetFiles[$sec['cat']] ?? []; @endphp
+                        @php
+                            $contextFiles = $fileReferences[$sec['cat']] ?? [];
+                            $legacyFiles = $legacyAssetFiles[$sec['cat']] ?? [];
+                            $hasContextFiles = !empty($contextFiles);
+                            $hasLegacyFiles = !empty($legacyFiles);
+                        @endphp
                         <div class="space-y-2 {{ !$loop->first ? 'pt-3 border-t border-[var(--ui-border)]' : '' }}">
                             <div class="flex items-center justify-between">
                                 <label class="text-[0.65rem] font-semibold text-[var(--ui-muted)]">{{ $sec['label'] }}</label>
-                                <span class="text-[0.6rem] font-mono text-[var(--ui-muted)]">{{ count($files) }} hinterlegt</span>
+                                <span class="text-[0.6rem] font-mono text-[var(--ui-muted)]">{{ count($contextFiles) + count($legacyFiles) }} hinterlegt</span>
                             </div>
 
-                            @if(!empty($files))
+                            {{-- ContextFile-basierte Dateien --}}
+                            @if($hasContextFiles)
                                 <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
-                                    @foreach($files as $f)
+                                    @foreach($contextFiles as $f)
                                         <div class="border border-[var(--ui-border)] rounded-md overflow-hidden bg-[var(--ui-muted-5)]">
+                                            @if(($f['is_image'] ?? false) && ($f['thumbnail'] ?? $f['url'] ?? null))
+                                                <a href="{{ $f['url'] }}" target="_blank" rel="noopener" class="block bg-white">
+                                                    <img src="{{ $f['thumbnail'] ?? $f['url'] }}" alt="{{ $f['title'] ?? '' }}"
+                                                         class="w-full h-24 object-cover hover:opacity-90 transition-opacity">
+                                                </a>
+                                            @else
+                                                <div class="flex items-center justify-center h-24 bg-white text-[var(--ui-muted)]">
+                                                    @svg('heroicon-o-document', 'w-8 h-8')
+                                                </div>
+                                            @endif
+                                            <div class="p-1.5 flex items-center gap-1 text-[0.6rem]">
+                                                @if($f['url'] ?? null)
+                                                    <a href="{{ $f['url'] }}" target="_blank" rel="noopener"
+                                                       class="text-[var(--ui-primary)] hover:underline truncate flex-1"
+                                                       title="{{ $f['title'] ?? '' }}">
+                                                        {{ $f['title'] ?? 'Datei' }}
+                                                    </a>
+                                                @else
+                                                    <span class="truncate flex-1 text-[var(--ui-muted)]">{{ $f['title'] ?? 'Datei' }}</span>
+                                                @endif
+                                                <button type="button"
+                                                        wire:click="deleteFile({{ $f['id'] }})"
+                                                        wire:confirm="Datei wirklich entfernen?"
+                                                        class="text-red-600 hover:bg-red-50 rounded p-1">
+                                                    @svg('heroicon-o-trash', 'w-3 h-3')
+                                                </button>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @endif
+
+                            {{-- Legacy S3-Dateien (read-only Fallback) --}}
+                            @if($hasLegacyFiles)
+                                @if($hasContextFiles)
+                                    <div class="flex items-center gap-2 text-[0.58rem] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                                        @svg('heroicon-o-exclamation-triangle', 'w-3 h-3 flex-shrink-0')
+                                        <span>Legacy-Dateien (S3): werden nach Migration in das neue System entfernt.</span>
+                                    </div>
+                                @endif
+                                <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                    @foreach($legacyFiles as $f)
+                                        <div class="border border-[var(--ui-border)] rounded-md overflow-hidden bg-[var(--ui-muted-5)] {{ $hasContextFiles ? 'opacity-60' : '' }}">
                                             @if($f['is_image'] && $f['url'])
                                                 <a href="{{ $f['url'] }}" target="_blank" rel="noopener" class="block bg-white">
                                                     <img src="{{ $f['url'] }}" alt="{{ $f['filename'] }}"
@@ -487,7 +635,7 @@
                                                     <span class="truncate flex-1 text-[var(--ui-muted)]">{{ $f['filename'] }}</span>
                                                 @endif
                                                 <button type="button"
-                                                        wire:click="deleteAssetFile('{{ $sec['cat'] }}', '{{ $f['filename'] }}')"
+                                                        wire:click="deleteLegacyAssetFile('{{ $sec['cat'] }}', '{{ $f['filename'] }}')"
                                                         wire:confirm="Datei „{{ $f['filename'] }}" wirklich entfernen?"
                                                         class="text-red-600 hover:bg-red-50 rounded p-1">
                                                     @svg('heroicon-o-trash', 'w-3 h-3')
@@ -498,6 +646,7 @@
                                 </div>
                             @endif
 
+                            {{-- Upload-Dropzone --}}
                             <div>
                                 <div x-data="{ over: false }"
                                      @dragover.prevent.stop="over = true"
@@ -515,7 +664,7 @@
                                      class="border-2 border-dashed rounded-md p-3 text-center cursor-pointer transition-colors">
                                     <input type="file"
                                            multiple
-                                           wire:model="{{ $sec['prop'] }}"
+                                           wire:model="newUploadFiles"
                                            x-ref="input"
                                            accept="{{ $sec['accept'] }}"
                                            class="sr-only">
@@ -524,11 +673,21 @@
                                         <span>Dateien hierher ziehen oder klicken (Mehrfachauswahl)</span>
                                     </div>
                                 </div>
-                                <div wire:loading wire:target="{{ $sec['prop'] }}" class="mt-1 flex items-center gap-1 text-[0.62rem] text-[var(--ui-muted)]">
+                                @if(!empty($newUploadFiles))
+                                    <div class="mt-2 flex items-center gap-2">
+                                        <span class="text-[0.62rem] text-[var(--ui-muted)]">{{ count($newUploadFiles) }} Datei(en) ausgewählt</span>
+                                        <button type="button" wire:click="uploadFiles('{{ $sec['cat'] }}')"
+                                                class="text-[0.62rem] text-[var(--ui-primary)] font-semibold hover:underline flex items-center gap-1">
+                                            @svg('heroicon-o-cloud-arrow-up', 'w-3 h-3')
+                                            Hochladen
+                                        </button>
+                                    </div>
+                                @endif
+                                <div wire:loading wire:target="uploadFiles" class="mt-1 flex items-center gap-1 text-[0.62rem] text-[var(--ui-muted)]">
                                     @svg('heroicon-o-arrow-path', 'w-3 h-3 animate-spin')
                                     Upload läuft …
                                 </div>
-                                @error($sec['prop']) <p class="mt-1 text-[0.62rem] text-red-600">{{ $message }}</p> @enderror
+                                @error('newUploadFiles') <p class="mt-1 text-[0.62rem] text-red-600">{{ $message }}</p> @enderror
                                 <p class="mt-1 text-[0.62rem] text-[var(--ui-muted)]">{{ $sec['hint'] }}</p>
                             </div>
                         </div>

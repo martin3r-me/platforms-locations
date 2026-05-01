@@ -9,6 +9,10 @@
             ['label' => 'Verwalten'],
         ]">
             <x-slot name="left">
+                <x-ui-button variant="ghost" size="sm" :href="route('locations.sites')" wire:navigate>
+                    @svg('heroicon-o-building-library', 'w-4 h-4')
+                    <span>Sites</span>
+                </x-ui-button>
                 <x-ui-button variant="ghost" size="sm" :href="route('locations.occupancy')" wire:navigate>
                     @svg('heroicon-o-chart-bar', 'w-4 h-4')
                     <span>Auslastung</span>
