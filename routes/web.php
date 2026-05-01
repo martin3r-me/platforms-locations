@@ -8,8 +8,8 @@ use Platform\Locations\Livewire\SiteIndex;
 use Platform\Locations\Livewire\SiteShow;
 
 Route::get('/', Dashboard::class)->name('locations.dashboard');
-Route::get('/locations', Manage::class)->name('locations.manage');
-Route::get('/locations/{location}', Show::class)->name('locations.show');
+Route::get('/manage', Manage::class)->name('locations.manage');
 Route::get('/auslastung', Occupancy::class)->name('locations.occupancy');
 Route::get('/sites', SiteIndex::class)->name('locations.sites');
 Route::get('/sites/{site}', SiteShow::class)->name('locations.sites.show');
+Route::get('/{location}', Show::class)->name('locations.show');
