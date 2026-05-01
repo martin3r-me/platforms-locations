@@ -116,7 +116,7 @@
                                                     variant="danger-outline"
                                                     size="sm"
                                                     wire:click="delete('{{ $location->uuid }}')"
-                                                    wire:confirm="Location „{{ $location->name }}" wirklich löschen?"
+                                                    wire:confirm="Location &bdquo;{{ $location->name }}&ldquo; wirklich löschen?"
                                                 >
                                                     @svg('heroicon-o-trash', 'w-3.5 h-3.5')
                                                 </x-ui-button>

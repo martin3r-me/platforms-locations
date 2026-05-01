@@ -37,7 +37,7 @@
                 variant="danger-outline"
                 size="sm"
                 wire:click="delete"
-                wire:confirm="Location „{{ $location->name }}" wirklich löschen?"
+                wire:confirm="Location &bdquo;{{ $location->name }}&ldquo; wirklich löschen?"
             >
                 @svg('heroicon-o-trash', 'w-4 h-4')
             </x-ui-button>
@@ -636,7 +636,7 @@
                                                 @endif
                                                 <button type="button"
                                                         wire:click="deleteLegacyAssetFile('{{ $sec['cat'] }}', '{{ $f['filename'] }}')"
-                                                        wire:confirm="Datei „{{ $f['filename'] }}" wirklich entfernen?"
+                                                        wire:confirm="Datei &bdquo;{{ $f['filename'] }}&ldquo; wirklich entfernen?"
                                                         class="text-red-600 hover:bg-red-50 rounded p-1">
                                                     @svg('heroicon-o-trash', 'w-3 h-3')
                                                 </button>

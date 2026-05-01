@@ -26,7 +26,7 @@
                 variant="danger-outline"
                 size="sm"
                 wire:click="delete"
-                wire:confirm="Site „{{ $site->name }}" wirklich löschen?"
+                wire:confirm="Site &bdquo;{{ $site->name }}&ldquo; wirklich löschen?"
             >
                 @svg('heroicon-o-trash', 'w-4 h-4')
             </x-ui-button>
