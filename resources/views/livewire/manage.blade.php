@@ -14,20 +14,26 @@
                 crossorigin="anonymous" defer></script>
     @endonce
 
-    <x-ui-page-container>
+    <x-slot name="actionbar">
         <x-ui-page-actionbar :breadcrumbs="[
-            ['label' => 'Locations', 'route' => 'locations.dashboard'],
+            ['label' => 'Locations', 'href' => route('locations.dashboard'), 'icon' => 'map-pin'],
             ['label' => 'Verwalten'],
         ]">
+            <x-slot name="left">
+                <x-ui-button variant="ghost" size="sm" :href="route('locations.occupancy')" wire:navigate>
+                    @svg('heroicon-o-chart-bar', 'w-4 h-4')
+                    <span>Auslastung</span>
+                </x-ui-button>
+            </x-slot>
             <x-ui-button variant="primary" size="sm" wire:click="openCreate">
-                <span class="flex items-center gap-2">
-                    @svg('heroicon-o-plus', 'w-4 h-4')
-                    Neue Location
-                </span>
+                @svg('heroicon-o-plus', 'w-4 h-4')
+                <span>Neue Location</span>
             </x-ui-button>
         </x-ui-page-actionbar>
+    </x-slot>
 
-        <div class="space-y-6 pt-4">
+    <x-ui-page-container>
+        <div class="space-y-6">
             <x-ui-panel title="Stammdaten" subtitle="Alle verfügbaren Locations">
                 @if($locations->isEmpty())
                     <div class="p-12 text-center">

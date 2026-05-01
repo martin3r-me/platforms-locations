@@ -4,6 +4,21 @@
         <x-ui-page-navbar title="Dashboard" icon="heroicon-o-home" />
     </x-slot>
 
+    <x-slot name="actionbar">
+        <x-ui-page-actionbar :breadcrumbs="[
+            ['label' => 'Locations', 'icon' => 'map-pin'],
+        ]">
+            <x-ui-button variant="primary" size="sm" :href="route('locations.manage')" wire:navigate>
+                @svg('heroicon-o-building-office', 'w-4 h-4')
+                <span>Verwalten</span>
+            </x-ui-button>
+            <x-ui-button variant="ghost" size="sm" :href="route('locations.occupancy')" wire:navigate>
+                @svg('heroicon-o-chart-bar', 'w-4 h-4')
+                <span>Auslastung</span>
+            </x-ui-button>
+        </x-ui-page-actionbar>
+    </x-slot>
+
     {{-- Hauptinhalt --}}
     <x-ui-page-container>
         <div class="space-y-6">
@@ -60,43 +75,51 @@
         </div>
     </x-ui-page-container>
 
-    {{-- Linke Sidebar (Schnellzugriff) --}}
+    {{-- Linke Sidebar --}}
     <x-slot name="sidebar">
-        <x-ui-page-sidebar title="Schnellzugriff" width="w-80" :defaultOpen="true">
-            <div class="p-6 space-y-6">
-                {{-- Quick Actions --}}
+        <x-ui-page-sidebar title="Übersicht" width="w-80" :defaultOpen="true">
+            <div class="p-4 space-y-6">
+                {{-- Gruppen-Breakdown --}}
                 <div>
-                    <h3 class="text-sm font-bold text-[var(--ui-secondary)] uppercase tracking-wider mb-3">Aktionen</h3>
-                    <div class="space-y-2">
-                        <x-ui-button variant="secondary-outline" size="sm" :href="route('locations.manage')" wire:navigate class="w-full">
-                            <span class="flex items-center gap-2">
-                                @svg('heroicon-o-building-office', 'w-4 h-4')
-                                Locations verwalten
-                            </span>
-                        </x-ui-button>
-                        <x-ui-button variant="secondary-outline" size="sm" :href="route('locations.occupancy')" wire:navigate class="w-full">
-                            <span class="flex items-center gap-2">
-                                @svg('heroicon-o-chart-bar', 'w-4 h-4')
-                                Auslastung
-                            </span>
-                        </x-ui-button>
-                    </div>
+                    <h3 class="text-xs font-semibold uppercase tracking-wide text-[var(--ui-muted)] mb-3">Gruppen</h3>
+                    @if($groupBreakdown->isEmpty())
+                        <p class="text-xs text-[var(--ui-muted)]">Keine Gruppen gepflegt.</p>
+                    @else
+                        <div class="space-y-2">
+                            @foreach($groupBreakdown as $group)
+                                <div class="p-2.5 rounded-md border border-[var(--ui-border)]/40 bg-[var(--ui-muted-5)]">
+                                    <div class="flex items-center justify-between mb-1">
+                                        <span class="text-xs font-semibold text-[var(--ui-secondary)] truncate">{{ $group['name'] }}</span>
+                                        <span class="text-[0.62rem] font-mono text-[var(--ui-muted)] flex-shrink-0 ml-2">{{ $group['count'] }}x</span>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex-1 h-1.5 bg-[var(--ui-muted)]/10 rounded-full overflow-hidden mr-3">
+                                            <div class="h-full bg-[var(--ui-primary)] rounded-full transition-all"
+                                                 style="width: {{ $totalCapacity > 0 ? round($group['capacity'] / $totalCapacity * 100) : 0 }}%"></div>
+                                        </div>
+                                        <span class="text-[0.62rem] font-mono font-semibold text-[var(--ui-secondary)] flex-shrink-0">{{ $group['capacity'] }} PAX</span>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
                 </div>
 
-                {{-- Quick Stats --}}
-                <div>
-                    <h3 class="text-sm font-bold text-[var(--ui-secondary)] uppercase tracking-wider mb-3">Schnellstatistiken</h3>
-                    <div class="space-y-3">
-                        <div class="p-3 bg-[var(--ui-muted-5)] rounded-lg border border-[var(--ui-border)]/40">
-                            <div class="text-xs text-[var(--ui-muted)]">Locations</div>
-                            <div class="text-lg font-bold text-[var(--ui-secondary)]">{{ $totalLocations }}</div>
-                        </div>
-                        <div class="p-3 bg-[var(--ui-muted-5)] rounded-lg border border-[var(--ui-border)]/40">
-                            <div class="text-xs text-[var(--ui-muted)]">Gesamt-Kapazität</div>
-                            <div class="text-lg font-bold text-[var(--ui-secondary)]">{{ $totalCapacity }} PAX</div>
+                {{-- Top Locations nach Kapazität --}}
+                @if($topLocations->isNotEmpty())
+                    <div>
+                        <h3 class="text-xs font-semibold uppercase tracking-wide text-[var(--ui-muted)] mb-3">Größte Locations</h3>
+                        <div class="space-y-1.5">
+                            @foreach($topLocations as $loc)
+                                <div class="flex items-center gap-2 p-2 rounded-md border border-[var(--ui-border)]/40 bg-white">
+                                    <span class="text-[0.62rem] font-mono font-bold px-1.5 py-0.5 rounded bg-[var(--ui-muted-5)] text-[var(--ui-secondary)] border border-[var(--ui-border)]/60 uppercase flex-shrink-0">{{ $loc['kuerzel'] }}</span>
+                                    <span class="text-xs text-[var(--ui-secondary)] truncate flex-1">{{ $loc['name'] }}</span>
+                                    <span class="text-[0.62rem] font-mono font-semibold text-[var(--ui-muted)] flex-shrink-0">{{ $loc['pax_max'] }}</span>
+                                </div>
+                            @endforeach
                         </div>
                     </div>
-                </div>
+                @endif
             </div>
         </x-ui-page-sidebar>
     </x-slot>
@@ -104,14 +127,8 @@
     {{-- Rechte Sidebar (Aktivitäten) --}}
     <x-slot name="activity">
         <x-ui-page-sidebar title="Aktivitäten" width="w-80" :defaultOpen="false" storeKey="activityOpen" side="right">
-            <div class="p-4 space-y-4">
-                <div class="text-sm text-[var(--ui-muted)]">Letzte Aktivitäten</div>
-                <div class="space-y-3 text-sm">
-                    <div class="p-2 rounded border border-[var(--ui-border)]/60 bg-[var(--ui-muted-5)]">
-                        <div class="font-medium text-[var(--ui-secondary)] truncate">Dashboard geladen</div>
-                        <div class="text-[var(--ui-muted)]">vor 1 Minute</div>
-                    </div>
-                </div>
+            <div class="p-4">
+                <p class="text-xs text-[var(--ui-muted)]">Noch keine Aktivitäten.</p>
             </div>
         </x-ui-page-sidebar>
     </x-slot>

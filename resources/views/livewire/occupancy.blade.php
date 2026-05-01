@@ -28,19 +28,27 @@
         <x-ui-page-navbar title="Auslastung" icon="heroicon-o-chart-bar" />
     </x-slot>
 
-    <x-ui-page-container>
+    <x-slot name="actionbar">
         <x-ui-page-actionbar :breadcrumbs="[
-            ['label' => 'Locations', 'route' => 'locations.dashboard'],
+            ['label' => 'Locations', 'href' => route('locations.dashboard'), 'icon' => 'map-pin'],
             ['label' => 'Auslastung'],
         ]">
+            <x-slot name="left">
+                <x-ui-button variant="ghost" size="sm" :href="route('locations.manage')" wire:navigate>
+                    @svg('heroicon-o-building-office', 'w-4 h-4')
+                    <span>Verwalten</span>
+                </x-ui-button>
+            </x-slot>
             <span class="text-[0.68rem] font-mono text-[var(--ui-muted)]">
                 {{ \Carbon\Carbon::parse($periodStart)->format('d.m.Y') }}
                 –
                 {{ \Carbon\Carbon::parse($periodEnd)->format('d.m.Y') }}
             </span>
         </x-ui-page-actionbar>
+    </x-slot>
 
-        <div class="space-y-6 pt-4">
+    <x-ui-page-container>
+        <div class="space-y-6">
 
             {{-- ===== Header ===== --}}
             <div class="flex items-start justify-between gap-4 flex-wrap">
