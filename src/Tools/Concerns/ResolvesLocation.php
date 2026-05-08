@@ -147,7 +147,37 @@ trait ResolvesLocation
             ->all();
 
         if ($resolvedIds === []) {
-            return [null, ToolResult::error('LOCATION_NOT_FOUND', 'Die angegebene Location wurde nicht gefunden.')];
+            $detail = collect($candidates)
+                ->map(fn ($c) => "{$c['field']}='{$c['input']}'")
+                ->implode(', ');
+            $msg = "Die angegebene Location wurde nicht gefunden ({$detail}).";
+
+            // Komfort: bei Kuerzel-aehnlichem Input die bekannten Kuerzel des Teams anhaengen.
+            $hasKuerzelLikeInput = false;
+            foreach ($candidates as $c) {
+                if ($c['field'] === 'location_kuerzel') {
+                    $hasKuerzelLikeInput = true;
+                    break;
+                }
+                if ($c['field'] === 'location_ref') {
+                    $v = $c['input'];
+                    if (is_string($v)
+                        && !preg_match('/^\d+$/', $v)
+                        && !preg_match('/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/', $v)
+                    ) {
+                        $hasKuerzelLikeInput = true;
+                        break;
+                    }
+                }
+            }
+            if ($hasKuerzelLikeInput && $teamCtxId !== null) {
+                $known = Location::knownKuerzel($teamCtxId);
+                if ($known !== []) {
+                    $msg .= "\nBekannte Kuerzel: " . implode(', ', $known);
+                }
+            }
+
+            return [null, ToolResult::error('LOCATION_NOT_FOUND', $msg)];
         }
 
         // Konflikt: mehrere Felder zeigen auf unterschiedliche Locations.

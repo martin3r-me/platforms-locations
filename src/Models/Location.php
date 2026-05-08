@@ -113,6 +113,26 @@ class Location extends Model implements HasFileContext
     }
 
     /**
+     * Liefert die Liste aller aktiven Kuerzel eines Teams, alphabetisch sortiert.
+     * Praktisch fuer LOCATION_NOT_FOUND-Fehlermeldungen, damit der Caller direkt
+     * sieht, welche Kuerzel tatsaechlich existieren.
+     *
+     * @return array<int,string>
+     */
+    public static function knownKuerzel(int $teamId): array
+    {
+        return self::query()
+            ->where('team_id', $teamId)
+            ->whereNotNull('kuerzel')
+            ->orderBy('kuerzel')
+            ->pluck('kuerzel')
+            ->filter(fn ($v) => $v !== null && $v !== '')
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
      * Generischer Resolver. Akzeptiert int, numerischen String, UUID-String
      * oder Kuerzel-String und liefert ein ResolveResult mit:
      *   - location:    ?self
