@@ -29,9 +29,11 @@ class ListLocationAssetsTool implements ToolContract, ToolMetadataContract
         return [
             'type' => 'object',
             'properties' => [
-                'location_id'   => ['type' => 'integer'],
-                'location_uuid' => ['type' => 'string'],
-                'category'      => [
+                'location_id'      => ['type' => 'integer', 'description' => 'Location-ID. Alternative zu uuid/kuerzel/ref.'],
+                'location_uuid'    => ['type' => 'string', 'description' => 'Location-UUID. Alternative zu id/kuerzel/ref.'],
+                'location_kuerzel' => ['type' => 'string', 'description' => 'Location-Kuerzel (per Team eindeutig, TRIM+UPPER).'],
+                'location_ref'     => ['description' => 'Generischer Resolver: numerisch->ID, UUID-Format->uuid, sonst Kuerzel.'],
+                'category'         => [
                     'type' => 'string',
                     'enum' => $cats,
                     'description' => 'Optional. Wenn nicht gesetzt, werden alle Kategorien gelistet.',
@@ -56,13 +58,14 @@ class ListLocationAssetsTool implements ToolContract, ToolMetadataContract
                 }
                 $files = $service->listFiles($location, $cat)->all();
                 return ToolResult::success([
-                    'location_id' => $location->id,
-                    'category'    => $cat,
-                    'label'       => $cats[$cat]['label'],
-                    'multi'       => (bool) $cats[$cat]['multi'],
-                    'files'       => $files,
-                    'total'       => count($files),
-                    'message'     => "Es wurden " . count($files) . " Datei(en) in Kategorie '{$cats[$cat]['label']}' gefunden.",
+                    'location_id'     => $location->id,
+                    'category'        => $cat,
+                    'label'           => $cats[$cat]['label'],
+                    'multi'           => (bool) $cats[$cat]['multi'],
+                    'files'           => $files,
+                    'total'           => count($files),
+                    'aliases_applied' => $this->resolvedLocationAliases(),
+                    'message'         => "Es wurden " . count($files) . " Datei(en) in Kategorie '{$cats[$cat]['label']}' gefunden.",
                 ]);
             }
 
@@ -81,10 +84,11 @@ class ListLocationAssetsTool implements ToolContract, ToolMetadataContract
             $totalAll = array_sum(array_column($byCategory, 'total'));
 
             return ToolResult::success([
-                'location_id' => $location->id,
-                'categories'  => $byCategory,
-                'total'       => $totalAll,
-                'message'     => "Es wurden insgesamt " . $totalAll . " Datei(en) ueber alle Kategorien gefunden.",
+                'location_id'     => $location->id,
+                'categories'      => $byCategory,
+                'total'           => $totalAll,
+                'aliases_applied' => $this->resolvedLocationAliases(),
+                'message'         => "Es wurden insgesamt " . $totalAll . " Datei(en) ueber alle Kategorien gefunden.",
             ]);
         } catch (\Throwable $e) {
             return ToolResult::error('EXECUTION_ERROR', 'Fehler: ' . $e->getMessage());

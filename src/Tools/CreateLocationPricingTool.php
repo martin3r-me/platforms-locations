@@ -16,7 +16,7 @@ class CreateLocationPricingTool implements ToolContract, ToolMetadataContract
     use RecommendsMissingLocationFields;
 
     protected const KNOWN_FIELDS = [
-        'location_id', 'location_uuid',
+        'location_id', 'location_uuid', 'location_kuerzel', 'location_ref',
         'day_type_label', 'price_net', 'label', 'article_number', 'sort_order',
     ];
 
@@ -35,8 +35,10 @@ class CreateLocationPricingTool implements ToolContract, ToolMetadataContract
         return [
             'type' => 'object',
             'properties' => [
-                'location_id'    => ['type' => 'integer'],
-                'location_uuid'  => ['type' => 'string'],
+                'location_id'      => ['type' => 'integer', 'description' => 'Location-ID. Alternative zu uuid/kuerzel/ref.'],
+                'location_uuid'    => ['type' => 'string', 'description' => 'Location-UUID. Alternative zu id/kuerzel/ref.'],
+                'location_kuerzel' => ['type' => 'string', 'description' => 'Location-Kuerzel (per Team eindeutig, TRIM+UPPER).'],
+                'location_ref'     => ['description' => 'Generischer Resolver: numerisch->ID, UUID-Format->uuid, sonst Kuerzel.'],
                 'day_type_label' => ['type' => 'string', 'description' => 'Volltext-Match gegen Events-Settings (z.B. "Veranstaltungstag", "Aufbautag").'],
                 'price_net'      => ['type' => 'number', 'description' => 'Netto-Mietpreis.'],
                 'label'          => ['type' => 'string', 'description' => 'Optional: Anzeige-Label, sonst "Miete <day_type_label>" oder Artikel-Name.'],
@@ -86,6 +88,7 @@ class CreateLocationPricingTool implements ToolContract, ToolMetadataContract
                 'label'          => $pricing->label,
                 'article_number' => $pricing->article_number,
                 'sort_order'     => (int) $pricing->sort_order,
+                'aliases_applied' => $this->resolvedLocationAliases(),
                 'ignored_fields' => $ignored,
                 '_field_hints'   => ['day_type_label' => $hints['day_type_label'] ?? null],
                 'message'        => "Mietpreis fuer '{$dayType}' angelegt.",

@@ -16,7 +16,7 @@ class CreateLocationAddonTool implements ToolContract, ToolMetadataContract
     use RecommendsMissingLocationFields;
 
     protected const KNOWN_FIELDS = [
-        'location_id', 'location_uuid',
+        'location_id', 'location_uuid', 'location_kuerzel', 'location_ref',
         'label', 'price_net', 'unit', 'article_number', 'is_active', 'sort_order',
     ];
 
@@ -35,8 +35,10 @@ class CreateLocationAddonTool implements ToolContract, ToolMetadataContract
         return [
             'type' => 'object',
             'properties' => [
-                'location_id'    => ['type' => 'integer'],
-                'location_uuid'  => ['type' => 'string'],
+                'location_id'      => ['type' => 'integer', 'description' => 'Location-ID. Alternative zu uuid/kuerzel/ref.'],
+                'location_uuid'    => ['type' => 'string', 'description' => 'Location-UUID. Alternative zu id/kuerzel/ref.'],
+                'location_kuerzel' => ['type' => 'string', 'description' => 'Location-Kuerzel (per Team eindeutig, TRIM+UPPER).'],
+                'location_ref'     => ['description' => 'Generischer Resolver: numerisch->ID, UUID-Format->uuid, sonst Kuerzel.'],
                 'label'          => ['type' => 'string', 'description' => 'z.B. "Heizung", "Buehne".'],
                 'price_net'      => ['type' => 'number', 'description' => 'Netto-Preis pro Einheit.'],
                 'unit'           => ['type' => 'string', 'enum' => LocationAddon::UNITS, 'description' => 'Default: pro_tag.'],
@@ -86,6 +88,7 @@ class CreateLocationAddonTool implements ToolContract, ToolMetadataContract
                 'unit' => $row->unit, 'unit_label' => $row->unitLabel(),
                 'article_number' => $row->article_number,
                 'is_active' => (bool) $row->is_active, 'sort_order' => (int) $row->sort_order,
+                'aliases_applied' => $this->resolvedLocationAliases(),
                 'ignored_fields' => $ignored,
                 '_field_hints'   => ['unit' => $hints['unit'] ?? null],
                 'message' => "Add-on '{$label}' angelegt.",

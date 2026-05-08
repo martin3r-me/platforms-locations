@@ -28,9 +28,11 @@ class DeleteLocationAssetTool implements ToolContract, ToolMetadataContract
         return [
             'type' => 'object',
             'properties' => [
-                'location_id'   => ['type' => 'integer'],
-                'location_uuid' => ['type' => 'string'],
-                'category'      => [
+                'location_id'      => ['type' => 'integer', 'description' => 'Location-ID. Alternative zu uuid/kuerzel/ref.'],
+                'location_uuid'    => ['type' => 'string', 'description' => 'Location-UUID. Alternative zu id/kuerzel/ref.'],
+                'location_kuerzel' => ['type' => 'string', 'description' => 'Location-Kuerzel (per Team eindeutig, TRIM+UPPER).'],
+                'location_ref'     => ['description' => 'Generischer Resolver: numerisch->ID, UUID-Format->uuid, sonst Kuerzel.'],
+                'category'         => [
                     'type' => 'string',
                     'enum' => array_keys(LocationAssetService::categories()),
                 ],
@@ -70,10 +72,11 @@ class DeleteLocationAssetTool implements ToolContract, ToolMetadataContract
             }
 
             return ToolResult::success([
-                'location_id' => $location->id,
-                'category'    => $cat,
-                'filename'    => $filename,
-                'message'     => "Datei '{$filename}' aus '{$cat}' geloescht.",
+                'location_id'     => $location->id,
+                'category'        => $cat,
+                'filename'        => $filename,
+                'aliases_applied' => $this->resolvedLocationAliases(),
+                'message'         => "Datei '{$filename}' aus '{$cat}' geloescht.",
             ]);
         } catch (\Throwable $e) {
             return ToolResult::error('EXECUTION_ERROR', 'Fehler: ' . $e->getMessage());

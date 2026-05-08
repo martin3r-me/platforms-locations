@@ -27,8 +27,10 @@ class ListLocationSeatingOptionsTool implements ToolContract, ToolMetadataContra
         return [
             'type' => 'object',
             'properties' => [
-                'location_id'   => ['type' => 'integer'],
-                'location_uuid' => ['type' => 'string'],
+                'location_id'      => ['type' => 'integer', 'description' => 'Location-ID. Alternative zu uuid/kuerzel/ref.'],
+                'location_uuid'    => ['type' => 'string', 'description' => 'Location-UUID. Alternative zu id/kuerzel/ref.'],
+                'location_kuerzel' => ['type' => 'string', 'description' => 'Location-Kuerzel (per Team eindeutig, TRIM+UPPER).'],
+                'location_ref'     => ['description' => 'Generischer Resolver: numerisch->ID, UUID-Format->uuid, sonst Kuerzel.'],
             ],
         ];
     }
@@ -53,6 +55,7 @@ class ListLocationSeatingOptionsTool implements ToolContract, ToolMetadataContra
             return ToolResult::success([
                 'seating_options' => $rows,
                 'total'           => count($rows),
+                'aliases_applied' => $this->resolvedLocationAliases(),
                 'message'         => "Es wurden " . count($rows) . " Bestuhlungsoption(en) gefunden.",
             ]);
         } catch (\Throwable $e) {

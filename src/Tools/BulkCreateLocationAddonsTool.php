@@ -32,8 +32,10 @@ class BulkCreateLocationAddonsTool implements ToolContract, ToolMetadataContract
         return [
             'type' => 'object',
             'properties' => [
-                'location_id'   => ['type' => 'integer'],
-                'location_uuid' => ['type' => 'string'],
+                'location_id'      => ['type' => 'integer', 'description' => 'Location-ID. Alternative zu uuid/kuerzel/ref.'],
+                'location_uuid'    => ['type' => 'string', 'description' => 'Location-UUID. Alternative zu id/kuerzel/ref.'],
+                'location_kuerzel' => ['type' => 'string', 'description' => 'Location-Kuerzel (per Team eindeutig, TRIM+UPPER).'],
+                'location_ref'     => ['description' => 'Generischer Resolver: numerisch->ID, UUID-Format->uuid, sonst Kuerzel.'],
                 'atomic' => ['type' => 'boolean', 'description' => 'Default true.'],
                 'items' => [
                     'type' => 'array',
@@ -80,8 +82,9 @@ class BulkCreateLocationAddonsTool implements ToolContract, ToolMetadataContract
                 return $payload;
             }
 
-            $payload['location_id']  = $location->id;
-            $payload['_field_hints'] = ['unit' => $this->recommendedSubEntityFieldOptions($location->team_id)['unit'] ?? null];
+            $payload['location_id']     = $location->id;
+            $payload['aliases_applied'] = $this->resolvedLocationAliases();
+            $payload['_field_hints']    = ['unit' => $this->recommendedSubEntityFieldOptions($location->team_id)['unit'] ?? null];
 
             return ToolResult::success($payload);
         } catch (\Throwable $e) {

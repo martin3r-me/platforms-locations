@@ -31,8 +31,10 @@ class BulkCreateLocationPricingsTool implements ToolContract, ToolMetadataContra
         return [
             'type' => 'object',
             'properties' => [
-                'location_id'   => ['type' => 'integer'],
-                'location_uuid' => ['type' => 'string'],
+                'location_id'      => ['type' => 'integer', 'description' => 'Location-ID. Alternative zu uuid/kuerzel/ref.'],
+                'location_uuid'    => ['type' => 'string', 'description' => 'Location-UUID. Alternative zu id/kuerzel/ref.'],
+                'location_kuerzel' => ['type' => 'string', 'description' => 'Location-Kuerzel (per Team eindeutig, TRIM+UPPER).'],
+                'location_ref'     => ['description' => 'Generischer Resolver: numerisch->ID, UUID-Format->uuid, sonst Kuerzel.'],
                 'atomic' => [
                     'type' => 'boolean',
                     'description' => 'Optional: Wenn true (Default), wird alles in einer DB-Transaktion ausgefuehrt.',
@@ -81,8 +83,9 @@ class BulkCreateLocationPricingsTool implements ToolContract, ToolMetadataContra
                 return $payload; // Atomic-Fehler bereits zurueckgegeben
             }
 
-            $payload['location_id']  = $location->id;
-            $payload['_field_hints'] = ['day_type_label' => $this->recommendedSubEntityFieldOptions($location->team_id)['day_type_label'] ?? null];
+            $payload['location_id']     = $location->id;
+            $payload['aliases_applied'] = $this->resolvedLocationAliases();
+            $payload['_field_hints']    = ['day_type_label' => $this->recommendedSubEntityFieldOptions($location->team_id)['day_type_label'] ?? null];
 
             return ToolResult::success($payload);
         } catch (\Throwable $e) {

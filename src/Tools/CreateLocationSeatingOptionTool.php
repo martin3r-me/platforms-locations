@@ -28,8 +28,10 @@ class CreateLocationSeatingOptionTool implements ToolContract, ToolMetadataContr
         return [
             'type' => 'object',
             'properties' => [
-                'location_id'   => ['type' => 'integer'],
-                'location_uuid' => ['type' => 'string'],
+                'location_id'      => ['type' => 'integer', 'description' => 'Location-ID. Alternative zu uuid/kuerzel/ref.'],
+                'location_uuid'    => ['type' => 'string', 'description' => 'Location-UUID. Alternative zu id/kuerzel/ref.'],
+                'location_kuerzel' => ['type' => 'string', 'description' => 'Location-Kuerzel (per Team eindeutig, TRIM+UPPER).'],
+                'location_ref'     => ['description' => 'Generischer Resolver: numerisch->ID, UUID-Format->uuid, sonst Kuerzel.'],
                 'label'         => ['type' => 'string', 'description' => 'z.B. "Reihenbestuhlung", "Runde 10er Tische".'],
                 'pax_max_ca'    => ['type' => 'integer', 'description' => 'Schaetzwert "bis zu N PAX".'],
                 'sort_order'    => ['type' => 'integer'],
@@ -64,6 +66,7 @@ class CreateLocationSeatingOptionTool implements ToolContract, ToolMetadataContr
             return ToolResult::success([
                 'id' => $row->id, 'uuid' => $row->uuid, 'location_id' => $row->location_id,
                 'label' => $row->label, 'pax_max_ca' => (int) $row->pax_max_ca, 'sort_order' => (int) $row->sort_order,
+                'aliases_applied' => $this->resolvedLocationAliases(),
                 'message' => "Bestuhlungsoption '{$label}' angelegt.",
             ]);
         } catch (\Throwable $e) {

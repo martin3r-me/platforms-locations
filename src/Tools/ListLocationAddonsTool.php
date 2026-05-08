@@ -29,9 +29,11 @@ class ListLocationAddonsTool implements ToolContract, ToolMetadataContract
         return [
             'type' => 'object',
             'properties' => [
-                'location_id'   => ['type' => 'integer'],
-                'location_uuid' => ['type' => 'string'],
-                'only_active'   => ['type' => 'boolean', 'description' => 'Optional: nur aktive Add-ons.'],
+                'location_id'      => ['type' => 'integer', 'description' => 'Location-ID. Alternative zu uuid/kuerzel/ref.'],
+                'location_uuid'    => ['type' => 'string', 'description' => 'Location-UUID. Alternative zu id/kuerzel/ref.'],
+                'location_kuerzel' => ['type' => 'string', 'description' => 'Location-Kuerzel (per Team eindeutig, TRIM+UPPER).'],
+                'location_ref'     => ['description' => 'Generischer Resolver: numerisch->ID, UUID-Format->uuid, sonst Kuerzel.'],
+                'only_active'      => ['type' => 'boolean', 'description' => 'Optional: nur aktive Add-ons.'],
             ],
         ];
     }
@@ -63,10 +65,11 @@ class ListLocationAddonsTool implements ToolContract, ToolMetadataContract
             $hints = $this->recommendedSubEntityFieldOptions($location->team_id);
 
             return ToolResult::success([
-                'addons'       => $rows,
-                'total'        => count($rows),
-                '_field_hints' => ['unit' => $hints['unit'] ?? null],
-                'message'      => "Es wurden " . count($rows) . " Add-on(s) gefunden.",
+                'addons'          => $rows,
+                'total'           => count($rows),
+                'aliases_applied' => $this->resolvedLocationAliases(),
+                '_field_hints'    => ['unit' => $hints['unit'] ?? null],
+                'message'         => "Es wurden " . count($rows) . " Add-on(s) gefunden.",
             ]);
         } catch (\Throwable $e) {
             return ToolResult::error('EXECUTION_ERROR', 'Fehler: ' . $e->getMessage());

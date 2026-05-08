@@ -112,6 +112,52 @@ class Location extends Model implements HasFileContext
             ->first();
     }
 
+    /**
+     * Generischer Resolver. Akzeptiert int, numerischen String, UUID-String
+     * oder Kuerzel-String und liefert ein ResolveResult mit:
+     *   - location:    ?self
+     *   - matched_by:  'id' | 'uuid' | 'kuerzel' | null
+     *   - normalized:  Wert nach Normalisierung (z.B. uppercased Kuerzel)
+     *
+     * Reihenfolge: numerisch -> ID, UUID-Format -> uuid, sonst -> kuerzel.
+     * team_id ist nur fuer Kuerzel-Aufloesung Pflicht; bei id/uuid ist sie
+     * optional und wird nur genutzt, um falsche Tenant-Treffer auszuschliessen.
+     *
+     * @return array{location: ?self, matched_by: ?string, normalized: ?string}
+     */
+    public static function resolveRef(int|string $ref, ?int $teamId = null): array
+    {
+        if (is_int($ref) || (is_string($ref) && preg_match('/^\d+$/', $ref))) {
+            $id = (int) $ref;
+            $q = self::query()->where('id', $id);
+            if ($teamId !== null) {
+                $q->where('team_id', $teamId);
+            }
+            return ['location' => $q->first(), 'matched_by' => 'id', 'normalized' => (string) $id];
+        }
+
+        $ref = (string) $ref;
+        // UUID v4-ish or v7 — 8-4-4-4-12 hex pattern
+        if (preg_match('/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/', $ref)) {
+            $q = self::query()->where('uuid', $ref);
+            if ($teamId !== null) {
+                $q->where('team_id', $teamId);
+            }
+            return ['location' => $q->first(), 'matched_by' => 'uuid', 'normalized' => $ref];
+        }
+
+        if ($teamId === null) {
+            return ['location' => null, 'matched_by' => null, 'normalized' => null];
+        }
+
+        $location = self::resolveByKuerzel($ref, $teamId);
+        return [
+            'location'   => $location,
+            'matched_by' => $location ? 'kuerzel' : null,
+            'normalized' => self::normalizeKuerzel($ref),
+        ];
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(\Platform\Core\Models\User::class);
