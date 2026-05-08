@@ -109,7 +109,23 @@ class UpdateLocationTool implements ToolContract, ToolMetadataContract
                 }
             }
             if (array_key_exists('kuerzel', $arguments)) {
-                $update['kuerzel'] = mb_substr((string) $arguments['kuerzel'], 0, 20);
+                $normalizedKuerzel = Location::normalizeKuerzel((string) $arguments['kuerzel']);
+                if ($normalizedKuerzel === null || $normalizedKuerzel === '') {
+                    return ToolResult::error('VALIDATION_ERROR', 'kuerzel darf nach Normalisierung nicht leer sein.');
+                }
+                if ($normalizedKuerzel !== $location->kuerzel) {
+                    $conflict = Location::where('team_id', $location->team_id)
+                        ->where('kuerzel', $normalizedKuerzel)
+                        ->where('id', '!=', $location->id)
+                        ->first(['id', 'name']);
+                    if ($conflict) {
+                        return ToolResult::error(
+                            'VALIDATION_ERROR',
+                            "Kuerzel '{$normalizedKuerzel}' wird bereits von Location id={$conflict->id} (name='{$conflict->name}') in diesem Team genutzt. Kuerzel sind pro Team eindeutig."
+                        );
+                    }
+                }
+                $update['kuerzel'] = $normalizedKuerzel;
             }
             if (array_key_exists('hallennummer', $arguments)) {
                 $update['hallennummer'] = $arguments['hallennummer'] !== null

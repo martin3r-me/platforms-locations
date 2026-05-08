@@ -154,6 +154,20 @@ class CreateLocationTool implements ToolContract, ToolMetadataContract
                 return ToolResult::error('ACCESS_DENIED', "Du hast keinen Zugriff auf Team-ID {$teamId}.");
             }
 
+            $normalizedKuerzel = Location::normalizeKuerzel((string) $arguments['kuerzel']);
+            if ($normalizedKuerzel === null || $normalizedKuerzel === '') {
+                return ToolResult::error('VALIDATION_ERROR', 'kuerzel darf nach Normalisierung nicht leer sein.');
+            }
+            $existing = Location::where('team_id', $teamId)
+                ->where('kuerzel', $normalizedKuerzel)
+                ->first(['id', 'name', 'kuerzel']);
+            if ($existing) {
+                return ToolResult::error(
+                    'VALIDATION_ERROR',
+                    "Kuerzel '{$normalizedKuerzel}' existiert bereits in diesem Team (Location id={$existing->id}, name='{$existing->name}'). Kuerzel sind pro Team eindeutig."
+                );
+            }
+
             $maxSort = Location::where('team_id', $teamId)->max('sort_order') ?? 0;
 
             $anlaesse = null;
@@ -194,7 +208,7 @@ class CreateLocationTool implements ToolContract, ToolMetadataContract
                 'team_id'          => $teamId,
                 'user_id'          => $context->user->id,
                 'name'             => $arguments['name'],
-                'kuerzel'          => mb_substr($arguments['kuerzel'], 0, 20),
+                'kuerzel'          => $normalizedKuerzel,
                 'gruppe'           => $arguments['gruppe'] ?? null,
                 'pax_min'          => isset($arguments['pax_min']) ? (int) $arguments['pax_min'] : null,
                 'pax_max'          => isset($arguments['pax_max']) ? (int) $arguments['pax_max'] : null,

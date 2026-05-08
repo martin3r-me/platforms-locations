@@ -77,6 +77,41 @@ class Location extends Model implements HasFileContext
         });
     }
 
+    /**
+     * Normalisiert ein Kuerzel: TRIM + UPPER, max 20 Zeichen.
+     * Damit sind "ksh", " KSH ", "Ksh" identisch zu "KSH" — passend zum
+     * UNIQUE INDEX (team_id, kuerzel).
+     */
+    public static function normalizeKuerzel(?string $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+        return mb_substr(mb_strtoupper(trim($value)), 0, 20);
+    }
+
+    public function setKuerzelAttribute(?string $value): void
+    {
+        $this->attributes['kuerzel'] = self::normalizeKuerzel($value);
+    }
+
+    /**
+     * Loest ein Kuerzel innerhalb eines Teams zu einer Location auf.
+     * Kuerzel ist nur per Team eindeutig — team_id ist daher Pflicht.
+     * Liefert null, wenn keine aktive Location zum Kuerzel existiert.
+     */
+    public static function resolveByKuerzel(string $kuerzel, int $teamId): ?self
+    {
+        $normalized = self::normalizeKuerzel($kuerzel);
+        if ($normalized === null || $normalized === '') {
+            return null;
+        }
+        return self::query()
+            ->where('team_id', $teamId)
+            ->where('kuerzel', $normalized)
+            ->first();
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(\Platform\Core\Models\User::class);
