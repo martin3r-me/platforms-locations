@@ -153,6 +153,37 @@ class Show extends Component
         $this->redirect(route('locations.manage'), navigate: true);
     }
 
+    // ================= Kunden-Booklet (Public Share) =================
+
+    /** Tage-Eingabe fuers Inline-Edit der Token-Gueltigkeit */
+    public int $bookletValidDays = 30;
+
+    public function generateBookletShare(): void
+    {
+        $days = max(1, min(365, $this->bookletValidDays ?: 30));
+        $this->location->generateBookletShareToken($days);
+        $this->location->refresh();
+        session()->flash('booklet_status', 'Kunden-Link wurde erzeugt und ist ' . $days . ' Tage gueltig.');
+    }
+
+    public function extendBookletShare(): void
+    {
+        if (!$this->location->hasBookletShare()) {
+            return;
+        }
+        $days = max(1, min(365, $this->bookletValidDays ?: 30));
+        $this->location->extendBookletShare(now()->addDays($days));
+        $this->location->refresh();
+        session()->flash('booklet_status', 'Gueltigkeit auf ' . $days . ' Tage ab heute verlaengert.');
+    }
+
+    public function revokeBookletShare(): void
+    {
+        $this->location->revokeBookletShare();
+        $this->location->refresh();
+        session()->flash('booklet_status', 'Kunden-Link wurde widerrufen — alte URL ist sofort ungueltig.');
+    }
+
     protected function loadForm(): void
     {
         $loc = $this->location;

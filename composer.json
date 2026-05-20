@@ -9,7 +9,9 @@
             "email": "team@platform.com"
         }
     ],
-    "require": {},
+    "require": {
+        "spatie/browsershot": "^4.0"
+    },
     "autoload": {
         "psr-4": {
             "Platform\\Locations\\": "src/"

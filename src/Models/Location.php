@@ -43,6 +43,8 @@ class Location extends Model implements HasFileContext
         'besonderheit',
         'beschreibung',
         'anlaesse',
+        'booklet_share_token',
+        'booklet_share_expires_at',
     ];
 
     protected $casts = [
@@ -57,6 +59,11 @@ class Location extends Model implements HasFileContext
         'groesse_qm' => 'decimal:2',
         'barrierefrei' => 'boolean',
         'anlaesse' => 'array',
+        'booklet_share_expires_at' => 'datetime',
+    ];
+
+    protected $hidden = [
+        'booklet_share_token',
     ];
 
     public function hasCoordinates(): bool
@@ -458,5 +465,91 @@ class Location extends Model implements HasFileContext
     public static function assetCategories(): array
     {
         return \Platform\Locations\Services\LocationAssetService::categories();
+    }
+
+    // ================= Kunden-Booklet (Public Share) =================
+
+    /**
+     * Default-Gueltigkeitsdauer eines neu erzeugten Share-Tokens in Tagen.
+     */
+    public const BOOKLET_SHARE_DEFAULT_DAYS = 30;
+
+    /**
+     * Erzeugt einen neuen Share-Token fuer das Kunden-Booklet und speichert
+     * Ablaufdatum. Ueberschreibt einen ggf. bestehenden Token (der alte Link
+     * wird damit ungueltig).
+     */
+    public function generateBookletShareToken(?int $validDays = null): string
+    {
+        $days = $validDays ?? self::BOOKLET_SHARE_DEFAULT_DAYS;
+        do {
+            $token = \Illuminate\Support\Str::random(40);
+        } while (self::query()->where('booklet_share_token', $token)->exists());
+
+        $this->forceFill([
+            'booklet_share_token' => $token,
+            'booklet_share_expires_at' => now()->addDays($days),
+        ])->save();
+
+        return $token;
+    }
+
+    /**
+     * Setzt das Ablaufdatum auf einen neuen Wert (z. B. UI-Inline-Edit) ohne
+     * den Token zu rotieren.
+     */
+    public function extendBookletShare(\DateTimeInterface $newExpiry): void
+    {
+        $this->forceFill(['booklet_share_expires_at' => $newExpiry])->save();
+    }
+
+    /**
+     * Loescht Token + Expiry und macht damit den oeffentlichen Link tot.
+     */
+    public function revokeBookletShare(): void
+    {
+        $this->forceFill([
+            'booklet_share_token' => null,
+            'booklet_share_expires_at' => null,
+        ])->save();
+    }
+
+    public function hasBookletShare(): bool
+    {
+        return !empty($this->booklet_share_token);
+    }
+
+    public function bookletShareIsExpired(): bool
+    {
+        if (!$this->hasBookletShare()) {
+            return true;
+        }
+        return $this->booklet_share_expires_at !== null
+            && $this->booklet_share_expires_at->isPast();
+    }
+
+    public function bookletShareIsActive(): bool
+    {
+        return $this->hasBookletShare() && !$this->bookletShareIsExpired();
+    }
+
+    /**
+     * Liefert die Public-URL des Booklets als HTML-View (zum Teilen mit
+     * Kunden). Erfordert einen aktiven Token.
+     */
+    public function bookletPublicUrl(): ?string
+    {
+        if (!$this->hasBookletShare()) {
+            return null;
+        }
+        return route('locations.booklet.public.show', ['token' => $this->booklet_share_token]);
+    }
+
+    public function bookletPublicPdfUrl(): ?string
+    {
+        if (!$this->hasBookletShare()) {
+            return null;
+        }
+        return route('locations.booklet.public.pdf', ['token' => $this->booklet_share_token]);
     }
 }

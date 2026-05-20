@@ -695,6 +695,122 @@
                 </div>
             </x-ui-panel>
 
+            {{-- ===== Panel: Kunden-Booklet ===== --}}
+            <x-ui-panel title="Kunden-Booklet" subtitle="Magazin-PDF zum Teilen mit Interessenten">
+                @if(session('booklet_status'))
+                    <div class="mb-3 flex items-start gap-2 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs px-3 py-2 rounded-md">
+                        @svg('heroicon-o-check-circle', 'w-4 h-4 flex-shrink-0 mt-0.5')
+                        <span>{{ session('booklet_status') }}</span>
+                    </div>
+                @endif
+
+                <div class="space-y-4">
+
+                    {{-- Status-Block --}}
+                    @if($location->bookletShareIsActive())
+                        @php $url = $location->bookletPublicUrl(); @endphp
+                        <div class="rounded-lg border border-[var(--ui-border)] bg-[var(--ui-muted-5)]/40 p-4 space-y-3">
+                            <div class="flex items-center justify-between flex-wrap gap-2">
+                                <div class="flex items-center gap-2">
+                                    <span class="inline-flex items-center gap-1 text-[0.62rem] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                        @svg('heroicon-o-link', 'w-3 h-3')
+                                        Aktiver Link
+                                    </span>
+                                    <span class="text-[0.65rem] text-[var(--ui-muted)]">
+                                        gueltig bis
+                                        <span class="font-mono font-semibold text-[var(--ui-secondary)]">
+                                            {{ $location->booklet_share_expires_at?->format('d.m.Y H:i') ?? '—' }}
+                                        </span>
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center gap-2 bg-white border border-[var(--ui-border)] rounded-md px-3 py-2 font-mono text-[0.7rem] text-[var(--ui-secondary)]">
+                                <span class="line-clamp-1 flex-1 select-all">{{ $url }}</span>
+                                <button type="button"
+                                        onclick="navigator.clipboard.writeText('{{ $url }}'); this.innerText='Kopiert ✓'; setTimeout(()=>this.innerText='Kopieren', 1500);"
+                                        class="text-[0.62rem] font-bold uppercase tracking-wider px-2 py-1 rounded bg-[var(--ui-secondary)] text-white hover:opacity-90">
+                                    Kopieren
+                                </button>
+                            </div>
+
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <a href="{{ $url }}" target="_blank" rel="noopener"
+                                   class="inline-flex items-center gap-1 text-[0.65rem] font-bold uppercase tracking-wider px-3 py-1.5 rounded border border-[var(--ui-border)] hover:bg-[var(--ui-muted-5)]">
+                                    @svg('heroicon-o-arrow-top-right-on-square', 'w-3.5 h-3.5')
+                                    Vorschau
+                                </a>
+                                <a href="{{ route('locations.booklet.download', ['location' => $location->uuid]) }}"
+                                   class="inline-flex items-center gap-1 text-[0.65rem] font-bold uppercase tracking-wider px-3 py-1.5 rounded bg-[var(--ui-primary)] text-white hover:opacity-90">
+                                    @svg('heroicon-o-arrow-down-tray', 'w-3.5 h-3.5')
+                                    PDF herunterladen
+                                </a>
+                                <span class="flex-1"></span>
+                                <button type="button" wire:click="extendBookletShare"
+                                        class="text-[0.62rem] font-bold uppercase tracking-wider px-2 py-1 rounded border border-[var(--ui-border)] hover:bg-[var(--ui-muted-5)]">
+                                    Verlaengern
+                                </button>
+                                <button type="button" wire:click="generateBookletShare"
+                                        wire:confirm="Neuen Link erzeugen? Der bisherige Link wird sofort ungueltig."
+                                        class="text-[0.62rem] font-bold uppercase tracking-wider px-2 py-1 rounded border border-amber-300 text-amber-800 hover:bg-amber-50">
+                                    Neu erzeugen
+                                </button>
+                                <button type="button" wire:click="revokeBookletShare"
+                                        wire:confirm="Kunden-Link sofort widerrufen?"
+                                        class="text-[0.62rem] font-bold uppercase tracking-wider px-2 py-1 rounded border border-red-300 text-red-700 hover:bg-red-50">
+                                    Widerrufen
+                                </button>
+                            </div>
+                        </div>
+                    @elseif($location->hasBookletShare() && $location->bookletShareIsExpired())
+                        <div class="rounded-lg border border-amber-300 bg-amber-50 p-4">
+                            <div class="flex items-start gap-2">
+                                @svg('heroicon-o-exclamation-triangle', 'w-4 h-4 text-amber-700 mt-0.5 flex-shrink-0')
+                                <div class="flex-1">
+                                    <p class="text-xs font-semibold text-amber-900 mb-0.5">Kunden-Link ist abgelaufen</p>
+                                    <p class="text-[0.65rem] text-amber-800">
+                                        Abgelaufen am {{ $location->booklet_share_expires_at?->format('d.m.Y') }}. Erzeuge einen neuen Link, falls du das Booklet wieder teilen moechtest.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    @else
+                        <div class="rounded-lg border border-dashed border-[var(--ui-border)] p-6 text-center">
+                            @svg('heroicon-o-document-text', 'w-8 h-8 text-[var(--ui-muted)] mx-auto mb-2')
+                            <p class="text-xs font-semibold text-[var(--ui-secondary)] mb-1">Noch kein Kunden-Link aktiv</p>
+                            <p class="text-[0.65rem] text-[var(--ui-muted)] max-w-md mx-auto">
+                                Erzeuge einen signed Token, ueber den Kunden das Booklet als Web-Vorschau und PDF einsehen koennen. Der Link laeuft automatisch ab und kann jederzeit widerrufen werden.
+                            </p>
+                        </div>
+                    @endif
+
+                    {{-- Gueltigkeit + Aktionen --}}
+                    <div class="flex items-end gap-2 flex-wrap pt-2 border-t border-[var(--ui-border)]/40">
+                        <div>
+                            <label class="text-[0.6rem] font-bold uppercase tracking-wider text-[var(--ui-muted)] block mb-1">Gueltigkeit (Tage)</label>
+                            <input type="number" min="1" max="365" wire:model="bookletValidDays"
+                                   class="w-24 border border-[var(--ui-border)] rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/30" />
+                        </div>
+                        @if(!$location->bookletShareIsActive())
+                            <x-ui-button type="button" variant="primary" size="sm" wire:click="generateBookletShare">
+                                @svg('heroicon-o-link', 'w-3.5 h-3.5')
+                                <span>Kunden-Link erzeugen</span>
+                            </x-ui-button>
+                        @endif
+                        <span class="flex-1"></span>
+                        <a href="{{ route('locations.booklet.download', ['location' => $location->uuid]) }}"
+                           class="inline-flex items-center gap-1 text-[0.65rem] font-bold uppercase tracking-wider px-3 py-1.5 rounded border border-[var(--ui-border)] hover:bg-[var(--ui-muted-5)]">
+                            @svg('heroicon-o-arrow-down-tray', 'w-3.5 h-3.5')
+                            PDF intern
+                        </a>
+                    </div>
+
+                    <p class="text-[0.6rem] text-[var(--ui-muted)] italic">
+                        Das Booklet zeigt Stammdaten, Bilder, Bestuhlungen, Anlaesse und Adresse. Mietpreise und Add-on-Kosten sind nicht enthalten — das PDF ist kunden-tauglich.
+                    </p>
+                </div>
+            </x-ui-panel>
+
         </form>
 
         {{-- ===== Article-Picker Modal ===== --}}

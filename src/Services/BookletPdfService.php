@@ -1,0 +1,141 @@
+<?php
+
+namespace Platform\Locations\Services;
+
+use Illuminate\Http\Response;
+use Illuminate\Support\Str;
+use Platform\Locations\Models\Location;
+use Spatie\Browsershot\Browsershot;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
+
+/**
+ * Rendert das Kunden-Booklet einer Location ueber Browsershot (Headless
+ * Chrome). Magazin-Layout mit Hero, Photo-Spread, Eckdaten, Bestuhlungen,
+ * Anlaessen und Adress-Block.
+ *
+ * Voraussetzung am Host: Chromium oder Google Chrome installiert.
+ * Konfiguration via Env:
+ *   CHROMIUM_PATH=/usr/bin/chromium       (optional, sonst Auto-Discover)
+ *   BROWSERSHOT_NO_SANDBOX=1              (Default 1, fuer Linux-Container)
+ */
+class BookletPdfService
+{
+    /**
+     * Wieviele Foto-Slots bekommt der Spread maximal.
+     * Erstes Bild ist Hero (separat), die restlichen fuellen das Magazin.
+     */
+    public const MAX_SPREAD_PHOTOS = 8;
+
+    /**
+     * Rendert das Magazin-HTML einer Location (ohne Browsershot-Step,
+     * fuer Public-HTML-View nutzbar).
+     */
+    public function renderHtml(Location $location): string
+    {
+        $assets = $this->collectAssets($location);
+
+        return view('locations::booklet.magazine', [
+            'location'  => $location,
+            'hero'      => $assets['hero'],
+            'spread'    => $assets['spread'],
+            'seatings'  => $location->seatingOptions()->orderBy('sort_order')->orderBy('label')->get(),
+            'anlaesse'  => is_array($location->anlaesse) ? array_values(array_filter($location->anlaesse)) : [],
+        ])->render();
+    }
+
+    /**
+     * Erzeugt das PDF-Binary fuer eine Location.
+     */
+    public function renderPdf(Location $location): string
+    {
+        $html = $this->renderHtml($location);
+
+        $shot = Browsershot::html($html)
+            ->format('A4')
+            ->showBackground()
+            ->waitUntilNetworkIdle()
+            ->margins(0, 0, 0, 0)
+            ->timeout(60);
+
+        if ($path = env('CHROMIUM_PATH')) {
+            $shot->setChromePath($path);
+        }
+        if ((bool) env('BROWSERSHOT_NO_SANDBOX', true)) {
+            $shot->noSandbox();
+        }
+
+        return $shot->pdf();
+    }
+
+    /**
+     * HTTP-Response (inline) — fuer Public-View und Auth-Preview.
+     */
+    public function inlineResponse(Location $location): SymfonyResponse
+    {
+        return response($this->renderPdf($location), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . $this->filename($location) . '"',
+        ]);
+    }
+
+    /**
+     * HTTP-Response (download) — fuer den Manage-Download-Button.
+     */
+    public function downloadResponse(Location $location): SymfonyResponse
+    {
+        return response($this->renderPdf($location), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="' . $this->filename($location) . '"',
+        ]);
+    }
+
+    protected function filename(Location $location): string
+    {
+        $base = Str::slug($location->name ?: $location->kuerzel ?: 'location');
+        return $base . '-booklet.pdf';
+    }
+
+    /**
+     * Sammelt verfuegbare Bilder einer Location:
+     *   - Hero: erstes Bild aus photos_empty, sonst photos_with_seating, sonst seating_plans (image), sonst Grundriss (wenn Bild).
+     *   - Spread: alle weiteren Bilder, sortiert nach Kategorie.
+     *
+     * Liefert URLs (string), Browsershot fetched diese beim Rendern. PDFs werden
+     * uebersprungen — das Booklet ist Bild-fokussiert.
+     *
+     * @return array{hero: ?string, spread: array<int,string>}
+     */
+    protected function collectAssets(Location $location): array
+    {
+        $urls = [];
+
+        foreach (['photos_empty', 'photos_with_seating', 'buffet', 'seating_plans'] as $cat) {
+            try {
+                $files = $location->assetFiles($cat);
+            } catch (\Throwable $e) {
+                continue;
+            }
+            foreach ($files as $f) {
+                if (!($f['is_image'] ?? false)) {
+                    continue;
+                }
+                $url = $f['url'] ?? null;
+                if (is_string($url) && $url !== '') {
+                    $urls[] = $url;
+                }
+            }
+        }
+
+        // Grundriss als Fallback, aber nur wenn er ein Bild ist
+        if (empty($urls) && $location->floorPlanIsImage()) {
+            if ($floor = $location->floorPlanUrl(60)) {
+                $urls[] = $floor;
+            }
+        }
+
+        $hero = $urls[0] ?? null;
+        $spread = array_slice($urls, 1, self::MAX_SPREAD_PHOTOS);
+
+        return ['hero' => $hero, 'spread' => $spread];
+    }
+}

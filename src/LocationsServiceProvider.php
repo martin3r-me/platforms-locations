@@ -49,6 +49,9 @@ class LocationsServiceProvider extends ServiceProvider
             });
         }
 
+        // Public Token-Routes (Booklet) — kein Auth, eigenes Routing.
+        $this->loadRoutesFrom(__DIR__ . '/../routes/public.php');
+
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
 
         $this->publishes([
