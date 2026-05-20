@@ -38,6 +38,7 @@ class BookletPdfService
             'location'  => $location,
             'hero'      => $assets['hero'],
             'spread'    => $assets['spread'],
+            'floorPlan' => $assets['floorPlan'],
             'seatings'  => $location->seatingOptions()->orderBy('sort_order')->orderBy('label')->get(),
             'anlaesse'  => is_array($location->anlaesse) ? array_values(array_filter($location->anlaesse)) : [],
         ])->render();
@@ -96,20 +97,54 @@ class BookletPdfService
     }
 
     /**
-     * Sammelt verfuegbare Bilder einer Location:
-     *   - Hero: erstes Bild aus photos_empty, sonst photos_with_seating, sonst seating_plans (image), sonst Grundriss (wenn Bild).
-     *   - Spread: alle weiteren Bilder, sortiert nach Kategorie.
+     * Sammelt verfuegbare Bilder einer Location aus beiden Speichersystemen:
      *
-     * Liefert URLs (string), Browsershot fetched diese beim Rendern. PDFs werden
-     * uebersprungen — das Booklet ist Bild-fokussiert.
+     *   1. ContextFile-References (modern, via `getOrderedFileReferences()`)
+     *   2. Legacy S3-Flat-Files (via `assetFiles($cat)`)
      *
-     * @return array{hero: ?string, spread: array<int,string>}
+     * Sortierung pro Quelle nach den Kategorien `photos_empty` → `photos_with_seating`
+     *   → `buffet` → `seating_plans`. Erstes Bild wird Hero, die weiteren
+     * fuellen den Photo-Spread (max 8 Slots, siehe MAX_SPREAD_PHOTOS).
+     *
+     * Falls ueberhaupt keine Asset-Bilder vorhanden sind, faellt das Booklet
+     * **bewusst nicht** auf den Grundriss zurueck — ein Grundriss als Cover-
+     * Hero wirkt nicht magazinhaft. Der Grundriss bekommt im Template eine
+     * eigene Seite (siehe `renderHtml`).
+     *
+     * Browsershot fetched die URLs beim Rendern. PDFs werden uebersprungen —
+     * das Booklet ist Bild-fokussiert.
+     *
+     * @return array{hero: ?string, spread: array<int,string>, floorPlan: ?string}
      */
     protected function collectAssets(Location $location): array
     {
         $urls = [];
+        $categories = ['photos_empty', 'photos_with_seating', 'buffet', 'seating_plans'];
 
-        foreach (['photos_empty', 'photos_with_seating', 'buffet', 'seating_plans'] as $cat) {
+        // 1) ContextFile-References (neue Quelle, gepflegt via Manage-UI)
+        try {
+            $byCategory = [];
+            foreach ($location->getOrderedFileReferences() as $ref) {
+                if (!($ref->contextFile?->isImage() ?? false)) {
+                    continue;
+                }
+                $cat = $ref->meta['category'] ?? 'uncategorized';
+                $url = $ref->url ?? null;
+                if (is_string($url) && $url !== '') {
+                    $byCategory[$cat][] = $url;
+                }
+            }
+            foreach ($categories as $cat) {
+                foreach ($byCategory[$cat] ?? [] as $url) {
+                    $urls[] = $url;
+                }
+            }
+        } catch (\Throwable $e) {
+            // ContextFile-System ggf. nicht verfuegbar
+        }
+
+        // 2) Legacy S3-Flat-Files (alte Quelle, Read-Only-Fallback)
+        foreach ($categories as $cat) {
             try {
                 $files = $location->assetFiles($cat);
             } catch (\Throwable $e) {
@@ -126,16 +161,15 @@ class BookletPdfService
             }
         }
 
-        // Grundriss als Fallback, aber nur wenn er ein Bild ist
-        if (empty($urls) && $location->floorPlanIsImage()) {
-            if ($floor = $location->floorPlanUrl(60)) {
-                $urls[] = $floor;
-            }
-        }
+        // URL-Duplikate eliminieren (falls Datei in beiden Systemen referenziert)
+        $urls = array_values(array_unique($urls));
 
-        $hero = $urls[0] ?? null;
+        $hero   = $urls[0] ?? null;
         $spread = array_slice($urls, 1, self::MAX_SPREAD_PHOTOS);
 
-        return ['hero' => $hero, 'spread' => $spread];
+        // Grundriss bekommt eine eigene Seite — nicht als Hero-Fallback.
+        $floorPlan = ($location->floorPlanIsImage() ? $location->floorPlanUrl(60) : null) ?: null;
+
+        return ['hero' => $hero, 'spread' => $spread, 'floorPlan' => $floorPlan];
     }
 }

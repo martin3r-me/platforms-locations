@@ -2,14 +2,16 @@
     /** @var \Platform\Locations\Models\Location $location */
     /** @var ?string $hero */
     /** @var array<int,string> $spread */
+    /** @var ?string $floorPlan */
     /** @var \Illuminate\Support\Collection $seatings */
     /** @var array<int,string> $anlaesse */
 
-    $hasSpread   = !empty($spread);
-    $hasSeating  = $seatings->isNotEmpty();
-    $hasAnlaesse = !empty($anlaesse);
-    $hasAddress  = !empty($location->adresse) || ($location->latitude && $location->longitude);
+    $hasSpread     = !empty($spread);
+    $hasSeating    = $seatings->isNotEmpty();
+    $hasAnlaesse   = !empty($anlaesse);
+    $hasAddress    = !empty($location->adresse) || ($location->latitude && $location->longitude);
     $hasDescription = !empty($location->beschreibung);
+    $hasFloorPlan  = !empty($floorPlan);
 
     // Eckdaten zusammenstellen
     $eckdaten = collect([
@@ -366,6 +368,33 @@
             line-height: 1.7;
         }
 
+        /* ============== GRUNDRISS-SEITE ============== */
+        .floorplan {
+            margin-top: 4mm;
+            padding: 6mm;
+            background: #ffffff;
+            border: 1px solid #e8dfcb;
+            border-radius: 1mm;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 200mm;
+        }
+        .floorplan img {
+            max-width: 100%;
+            max-height: 200mm;
+            object-fit: contain;
+            display: block;
+        }
+        .floorplan__caption {
+            font-size: 9pt;
+            color: var(--mute);
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            text-align: center;
+            margin-top: 4mm;
+        }
+
         /* ============== FOOTER auf jeder Content-Page ============== */
         .footer {
             position: absolute;
@@ -476,6 +505,26 @@
                 </div>
             @endforeach
         </div>
+
+        <div class="footer">
+            <span>{{ $location->name }}</span>
+            <span class="footer__brand">{{ $location->kuerzel }}</span>
+        </div>
+    </section>
+    @endif
+
+    {{-- ============ GRUNDRISS ============ --}}
+    @if($hasFloorPlan)
+    <section class="page content">
+        <div class="content__header">
+            <h2 class="content__title">Grundriss</h2>
+            <div class="content__caption">Plan</div>
+        </div>
+
+        <div class="floorplan">
+            <img src="{{ $floorPlan }}" alt="Grundriss {{ $location->name }}">
+        </div>
+        <div class="floorplan__caption">{{ $location->kuerzel }} · Massstab gemaess Plan</div>
 
         <div class="footer">
             <span>{{ $location->name }}</span>
