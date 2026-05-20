@@ -134,12 +134,31 @@ class Show extends Component
     public function mount(string $location): void
     {
         $team = Auth::user()->currentTeam;
-        $this->location = Location::where('team_id', $team->id)
-            ->where('uuid', $location)
-            ->firstOrFail();
 
-        $this->currentUuid = $this->location->uuid;
+        $loc = Location::withTrashed()->where('uuid', $location)->first();
+
+        if (!$loc) {
+            $this->redirectToManageWithError("Location nicht gefunden (UUID {$location} ist unbekannt).");
+            return;
+        }
+        if ($loc->trashed()) {
+            $this->redirectToManageWithError("Location \"{$loc->name}\" wurde geloescht.");
+            return;
+        }
+        if ((int) $loc->team_id !== (int) $team->id) {
+            $this->redirectToManageWithError("Location \"{$loc->name}\" gehoert zu einem anderen Team (gefunden: team_id={$loc->team_id}, aktiv: team_id={$team->id}).");
+            return;
+        }
+
+        $this->location = $loc;
+        $this->currentUuid = $loc->uuid;
         $this->loadForm();
+    }
+
+    protected function redirectToManageWithError(string $reason): void
+    {
+        session()->flash('locations_error', $reason);
+        $this->redirect(route('locations.manage'), navigate: true);
     }
 
     protected function loadForm(): void

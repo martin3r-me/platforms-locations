@@ -42,6 +42,13 @@
 
     <x-ui-page-container>
         <div class="space-y-6">
+            @if(session('locations_error'))
+                <div class="flex items-start gap-2 bg-red-50 border border-red-200 text-red-800 text-xs px-4 py-3 rounded-md">
+                    @svg('heroicon-o-exclamation-triangle', 'w-4 h-4 flex-shrink-0 mt-0.5')
+                    <span>{{ session('locations_error') }}</span>
+                </div>
+            @endif
+
             <x-ui-panel title="Stammdaten" subtitle="Alle verfügbaren Locations">
                 @if($locations->isEmpty())
                     <div class="p-12 text-center">
