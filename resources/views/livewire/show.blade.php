@@ -741,6 +741,8 @@
                                     Vorschau
                                 </a>
                                 <a href="{{ route('locations.booklet.download', ['location' => $location->uuid]) }}"
+                                   data-booklet-pdf
+                                   data-filename="{{ \Illuminate\Support\Str::slug($location->name ?: $location->kuerzel) }}-booklet.pdf"
                                    class="inline-flex items-center gap-1 text-[0.65rem] font-bold uppercase tracking-wider px-3 py-1.5 rounded bg-[var(--ui-primary)] text-white hover:opacity-90">
                                     @svg('heroicon-o-arrow-down-tray', 'w-3.5 h-3.5')
                                     PDF herunterladen
@@ -799,6 +801,8 @@
                         @endif
                         <span class="flex-1"></span>
                         <a href="{{ route('locations.booklet.download', ['location' => $location->uuid]) }}"
+                           data-booklet-pdf
+                           data-filename="{{ \Illuminate\Support\Str::slug($location->name ?: $location->kuerzel) }}-booklet.pdf"
                            class="inline-flex items-center gap-1 text-[0.65rem] font-bold uppercase tracking-wider px-3 py-1.5 rounded border border-[var(--ui-border)] hover:bg-[var(--ui-muted-5)]">
                             @svg('heroicon-o-arrow-down-tray', 'w-3.5 h-3.5')
                             PDF intern
@@ -809,6 +813,139 @@
                         Das Booklet zeigt Stammdaten, Bilder, Bestuhlungen, Anlaesse und Adresse. Mietpreise und Add-on-Kosten sind nicht enthalten — das PDF ist kunden-tauglich.
                     </p>
                 </div>
+
+                {{-- ===== Loading-Overlay fuer PDF-Render ===== --}}
+                <div id="booklet-pdf-overlay" class="booklet-pdf-overlay" aria-hidden="true" role="dialog" aria-live="polite">
+                    <div class="booklet-pdf-overlay__card">
+                        <div class="booklet-pdf-overlay__spinner"></div>
+                        <h3 class="booklet-pdf-overlay__title">PDF wird erzeugt</h3>
+                        <p class="booklet-pdf-overlay__hint">Magazin layouten und Fotos einbetten —<br>das dauert ein paar Sekunden.</p>
+                        <p class="booklet-pdf-overlay__error" data-error></p>
+                    </div>
+                </div>
+
+                <style>
+                    .booklet-pdf-overlay {
+                        position: fixed;
+                        inset: 0;
+                        background: rgba(14, 14, 13, 0.55);
+                        backdrop-filter: blur(4px);
+                        -webkit-backdrop-filter: blur(4px);
+                        display: none;
+                        align-items: center;
+                        justify-content: center;
+                        z-index: 9999;
+                        opacity: 0;
+                        transition: opacity 180ms ease;
+                    }
+                    .booklet-pdf-overlay.is-active {
+                        display: flex;
+                        opacity: 1;
+                    }
+                    .booklet-pdf-overlay__card {
+                        background: #f6f1e8;
+                        border: 1px solid rgba(184, 138, 62, 0.25);
+                        border-radius: 12px;
+                        padding: 36px 44px 32px;
+                        max-width: 360px;
+                        text-align: center;
+                        box-shadow: 0 24px 80px -16px rgba(20, 16, 10, 0.55);
+                        font-family: 'Inter', system-ui, sans-serif;
+                    }
+                    .booklet-pdf-overlay__spinner {
+                        width: 48px;
+                        height: 48px;
+                        margin: 0 auto 18px;
+                        border: 3px solid rgba(184, 138, 62, 0.18);
+                        border-top-color: #b88a3e;
+                        border-radius: 50%;
+                        animation: booklet-spin 800ms linear infinite;
+                    }
+                    @keyframes booklet-spin {
+                        to { transform: rotate(360deg); }
+                    }
+                    .booklet-pdf-overlay__title {
+                        margin: 0 0 6px;
+                        font-size: 15px;
+                        font-weight: 600;
+                        color: #0e0e0d;
+                        letter-spacing: -0.01em;
+                    }
+                    .booklet-pdf-overlay__hint {
+                        margin: 0;
+                        font-size: 12px;
+                        line-height: 1.5;
+                        color: #6b6256;
+                    }
+                    .booklet-pdf-overlay__error {
+                        margin: 14px 0 0;
+                        font-size: 12px;
+                        color: #b91c1c;
+                        display: none;
+                    }
+                    .booklet-pdf-overlay.is-error .booklet-pdf-overlay__error {
+                        display: block;
+                    }
+                    .booklet-pdf-overlay.is-error .booklet-pdf-overlay__spinner {
+                        border-top-color: #b91c1c;
+                        animation-play-state: paused;
+                    }
+                </style>
+
+                <script>
+                    (function () {
+                        if (window.__bookletPdfOverlayBound) return;
+                        window.__bookletPdfOverlayBound = true;
+
+                        const overlay = document.getElementById('booklet-pdf-overlay');
+                        const errorEl = overlay?.querySelector('[data-error]');
+
+                        function show() {
+                            if (!overlay) return;
+                            overlay.classList.remove('is-error');
+                            if (errorEl) errorEl.textContent = '';
+                            overlay.classList.add('is-active');
+                            overlay.setAttribute('aria-hidden', 'false');
+                        }
+                        function hide() {
+                            if (!overlay) return;
+                            overlay.classList.remove('is-active');
+                            overlay.setAttribute('aria-hidden', 'true');
+                        }
+                        function fail(msg) {
+                            if (!overlay) return;
+                            overlay.classList.add('is-error');
+                            if (errorEl) errorEl.textContent = msg;
+                            setTimeout(hide, 4200);
+                        }
+
+                        document.addEventListener('click', async function (ev) {
+                            const a = ev.target.closest('[data-booklet-pdf]');
+                            if (!a) return;
+                            ev.preventDefault();
+
+                            const url = a.getAttribute('href');
+                            const filename = a.dataset.filename || 'booklet.pdf';
+
+                            show();
+                            try {
+                                const res = await fetch(url, { credentials: 'same-origin' });
+                                if (!res.ok) throw new Error('HTTP ' + res.status);
+                                const blob = await res.blob();
+                                const dl = document.createElement('a');
+                                dl.href = URL.createObjectURL(blob);
+                                dl.download = filename;
+                                document.body.appendChild(dl);
+                                dl.click();
+                                dl.remove();
+                                URL.revokeObjectURL(dl.href);
+                                hide();
+                            } catch (e) {
+                                fail('PDF konnte nicht erzeugt werden: ' + e.message);
+                            }
+                        });
+                    })();
+                </script>
             </x-ui-panel>
 
         </form>
