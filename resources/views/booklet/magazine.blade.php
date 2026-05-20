@@ -66,11 +66,13 @@
         }
 
         .page {
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.16);
+            box-shadow: 0 8px 40px -8px rgba(20, 16, 10, 0.22),
+                        0 2px 10px -2px rgba(20, 16, 10, 0.10);
+            border-radius: 1mm;
         }
 
-        /* PRINT/PDF: Zentrier-Container und Schatten weg, damit das PDF
-           wieder seitenrein A4 ist. */
+        /* PRINT/PDF: Zentrier-Container, Schatten und Radius weg, damit das
+           PDF wieder seitenrein A4 ist. */
         @media print {
             html, body {
                 background: var(--paper);
@@ -82,6 +84,7 @@
             }
             .page {
                 box-shadow: none;
+                border-radius: 0;
             }
         }
 
