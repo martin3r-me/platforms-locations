@@ -131,36 +131,19 @@ class Show extends Component
     /** @var array<int, array> */
     public array $activityItems = [];
 
-    /**
-     * Akzeptiert sowohl das Implicit-Route-Model-Binding (Eloquent-Instanz)
-     * als auch den Roh-UUID-String aus der URL. Beide Pfade landen in einer
-     * Location-Instanz oder einer diagnostischen Flash-Redirect.
-     */
-    public function mount(Location|string $location): void
+    public function mount(Location $location): void
     {
         $team = Auth::user()->currentTeam;
 
-        if ($location instanceof Location) {
-            $loc = $location;
-        } else {
-            $loc = Location::withTrashed()->where('uuid', $location)->first();
-            if (!$loc) {
-                $this->redirectToManageWithError("Location nicht gefunden (UUID {$location} ist unbekannt).");
-                return;
-            }
-        }
-
-        if ($loc->trashed()) {
-            $this->redirectToManageWithError("Location \"{$loc->name}\" wurde geloescht.");
-            return;
-        }
-        if ((int) $loc->team_id !== (int) $team->id) {
-            $this->redirectToManageWithError("Location \"{$loc->name}\" gehoert zu einem anderen Team (gefunden: team_id={$loc->team_id}, aktiv: team_id={$team->id}).");
+        if ((int) $location->team_id !== (int) $team->id) {
+            $this->redirectToManageWithError(
+                "Location \"{$location->name}\" gehoert zu einem anderen Team (gefunden: team_id={$location->team_id}, aktiv: team_id={$team->id})."
+            );
             return;
         }
 
-        $this->location = $loc;
-        $this->currentUuid = $loc->uuid;
+        $this->location = $location;
+        $this->currentUuid = $location->uuid;
         $this->loadForm();
     }
 

@@ -70,14 +70,20 @@ class SiteShow extends Component
     /** @var array<int, array> */
     public array $activityItems = [];
 
-    public function mount(string $site): void
+    public function mount(LocationSite $site): void
     {
         $team = Auth::user()->currentTeam;
-        $this->site = LocationSite::where('team_id', $team->id)
-            ->where('uuid', $site)
-            ->firstOrFail();
 
-        $this->currentUuid = $this->site->uuid;
+        if ((int) $site->team_id !== (int) $team->id) {
+            session()->flash('locations_error',
+                "Site \"{$site->name}\" gehoert zu einem anderen Team (gefunden: team_id={$site->team_id}, aktiv: team_id={$team->id})."
+            );
+            $this->redirect(route('locations.sites'), navigate: true);
+            return;
+        }
+
+        $this->site = $site;
+        $this->currentUuid = $site->uuid;
         $this->loadForm();
     }
 

@@ -67,6 +67,17 @@ class LocationSite extends Model
         });
     }
 
+    /**
+     * Route-Model-Binding ueber UUID statt id — symmetrisch zu Location.
+     * Aktuell laeuft die Route via {site} (kein Model-Name-Match), also
+     * triggert Implicit-Binding heute nicht; das hier ist Defensive gegen
+     * Umbenennungen oder eine spaetere Site-Klasse.
+     */
+    public function getRouteKeyName(): string
+    {
+        return 'uuid';
+    }
+
     // ================= Relations =================
 
     public function user(): BelongsTo
