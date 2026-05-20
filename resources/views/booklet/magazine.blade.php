@@ -51,9 +51,38 @@
             padding: 0;
             font-family: 'Inter', system-ui, sans-serif;
             color: var(--ink);
-            background: var(--paper);
+            background: #d6cdb9;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
+        }
+
+        /* ============== SCREEN-LAYOUT: Magazin zentriert mit Außenrand ============== */
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10mm;
+            padding: 12mm 0;
+        }
+
+        .page {
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.16);
+        }
+
+        /* PRINT/PDF: Zentrier-Container und Schatten weg, damit das PDF
+           wieder seitenrein A4 ist. */
+        @media print {
+            html, body {
+                background: var(--paper);
+            }
+            body {
+                display: block;
+                padding: 0;
+                gap: 0;
+            }
+            .page {
+                box-shadow: none;
+            }
         }
 
         .display { font-family: 'Fraunces', Georgia, serif; font-weight: 400; letter-spacing: -0.01em; }
