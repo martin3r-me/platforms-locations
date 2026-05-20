@@ -14,7 +14,7 @@
     // Eckdaten zusammenstellen
     $eckdaten = collect([
         ['label' => 'PAX max.',         'value' => $location->pax_max ? number_format($location->pax_max, 0, ',', '.') : null, 'note' => $location->pax_min ? 'ab ' . $location->pax_min : null],
-        ['label' => 'Flaeche',          'value' => $location->groesse_qm ? rtrim(rtrim(number_format($location->groesse_qm, 2, ',', '.'), '0'), ',') . ' m²' : null],
+        ['label' => 'Fläche',           'value' => $location->groesse_qm ? rtrim(rtrim(number_format($location->groesse_qm, 2, ',', '.'), '0'), ',') . ' m²' : null],
         ['label' => 'Halle',            'value' => $location->hallennummer],
         ['label' => 'Mehrfachbelegung', 'value' => $location->mehrfachbelegung ? 'Ja' : 'Nein'],
         ['label' => 'Barrierefrei',     'value' => $location->barrierefrei ? 'Ja' : 'Nein'],
@@ -454,9 +454,16 @@
 
     {{-- ============ ANLAESSE + ADRESSE ============ --}}
     @if($hasAnlaesse || $hasAddress)
+    @php
+        $sectionTitle = match (true) {
+            $hasAnlaesse && $hasAddress => 'Anlässe & Adresse',
+            $hasAnlaesse                => 'Anlässe',
+            default                     => 'Adresse',
+        };
+    @endphp
     <section class="page content">
         <div class="content__header">
-            <h2 class="content__title">@if($hasAnlaesse)Anlaesse@else Adresse @endif</h2>
+            <h2 class="content__title">{{ $sectionTitle }}</h2>
             <div class="content__caption">No. 03</div>
         </div>
 
