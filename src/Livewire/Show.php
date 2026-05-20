@@ -131,16 +131,25 @@ class Show extends Component
     /** @var array<int, array> */
     public array $activityItems = [];
 
-    public function mount(string $location): void
+    /**
+     * Akzeptiert sowohl das Implicit-Route-Model-Binding (Eloquent-Instanz)
+     * als auch den Roh-UUID-String aus der URL. Beide Pfade landen in einer
+     * Location-Instanz oder einer diagnostischen Flash-Redirect.
+     */
+    public function mount(Location|string $location): void
     {
         $team = Auth::user()->currentTeam;
 
-        $loc = Location::withTrashed()->where('uuid', $location)->first();
-
-        if (!$loc) {
-            $this->redirectToManageWithError("Location nicht gefunden (UUID {$location} ist unbekannt).");
-            return;
+        if ($location instanceof Location) {
+            $loc = $location;
+        } else {
+            $loc = Location::withTrashed()->where('uuid', $location)->first();
+            if (!$loc) {
+                $this->redirectToManageWithError("Location nicht gefunden (UUID {$location} ist unbekannt).");
+                return;
+            }
         }
+
         if ($loc->trashed()) {
             $this->redirectToManageWithError("Location \"{$loc->name}\" wurde geloescht.");
             return;
