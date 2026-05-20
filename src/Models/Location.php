@@ -64,6 +64,18 @@ class Location extends Model implements HasFileContext
         return $this->latitude !== null && $this->longitude !== null;
     }
 
+    /**
+     * Route-Model-Binding laeuft ueber die UUID-Spalte, nicht ueber `id`.
+     * Ohne diesen Override castet PHP eine URL-UUID wie
+     * `019da04e-620d-7c08-a446-61d8d5f315d4` zu (int) 19 und Laravel laed
+     * stillschweigend die falsche Location (id=19) — der klassische
+     * "ich editiere ploetzlich einen anderen Datensatz"-Bug.
+     */
+    public function getRouteKeyName(): string
+    {
+        return 'uuid';
+    }
+
     protected static function booted(): void
     {
         static::creating(function (self $model) {
