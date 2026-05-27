@@ -238,6 +238,26 @@ class Show extends Component
         $this->bookletOptions = $this->location->fresh()->bookletOptions();
     }
 
+    /**
+     * Alle Booklet-Sektionen in einem Rutsch auf den gegebenen Wert setzen.
+     */
+    protected function setAllBookletOptions(bool $value): void
+    {
+        $options = array_fill_keys(array_keys(Location::BOOKLET_OPTION_DEFAULTS), $value);
+        $this->location->forceFill(['booklet_options' => $options])->save();
+        $this->bookletOptions = $this->location->fresh()->bookletOptions();
+    }
+
+    public function enableAllBookletOptions(): void
+    {
+        $this->setAllBookletOptions(true);
+    }
+
+    public function disableAllBookletOptions(): void
+    {
+        $this->setAllBookletOptions(false);
+    }
+
     public function updatedAdresse(?string $value): void
     {
         $this->searchAddress($value);

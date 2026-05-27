@@ -834,9 +834,24 @@
                     @endphp
 
                     <div class="pt-3 border-t border-[var(--ui-border)]/40">
-                        <div class="flex items-baseline justify-between mb-3">
-                            <h4 class="text-[0.7rem] font-bold uppercase tracking-wider text-[var(--ui-secondary)]">Was soll im Booklet erscheinen?</h4>
-                            <span class="text-[0.6rem] text-[var(--ui-muted)] italic">Aenderungen wirken beim naechsten PDF/Vorschau.</span>
+                        <div class="flex items-center justify-between flex-wrap gap-2 mb-3">
+                            <div class="flex items-baseline gap-3 flex-wrap">
+                                <h4 class="text-[0.7rem] font-bold uppercase tracking-wider text-[var(--ui-secondary)]">Was soll im Booklet erscheinen?</h4>
+                                <span class="text-[0.6rem] text-[var(--ui-muted)] italic">Aenderungen wirken beim naechsten PDF/Vorschau.</span>
+                            </div>
+                            <div class="flex items-center gap-1.5">
+                                <button type="button" wire:click="enableAllBookletOptions"
+                                        class="inline-flex items-center gap-1 text-[0.6rem] font-bold uppercase tracking-wider px-2 py-1 rounded border border-[var(--ui-primary)]/30 text-[var(--ui-primary)] hover:bg-[var(--ui-primary)]/10">
+                                    @svg('heroicon-o-check-circle', 'w-3.5 h-3.5')
+                                    Alle an
+                                </button>
+                                <button type="button" wire:click="disableAllBookletOptions"
+                                        wire:confirm="Wirklich alle Sektionen deaktivieren? Es bleiben nur Name, Kuerzel, PAX und Flaeche im Booklet."
+                                        class="inline-flex items-center gap-1 text-[0.6rem] font-bold uppercase tracking-wider px-2 py-1 rounded border border-[var(--ui-border)] text-[var(--ui-muted)] hover:bg-[var(--ui-muted-5)]">
+                                    @svg('heroicon-o-x-circle', 'w-3.5 h-3.5')
+                                    Alle aus
+                                </button>
+                            </div>
                         </div>
 
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
