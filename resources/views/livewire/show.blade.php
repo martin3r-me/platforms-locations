@@ -870,9 +870,9 @@
                                        : 'text-[var(--ui-muted)]' }}">
                             @if($bookletShowsPrices)
                                 @svg('heroicon-o-exclamation-triangle', 'w-3.5 h-3.5 flex-shrink-0')
-                                <span><span class="font-semibold">Preise sind aktiv:</span> dieses Booklet ist NICHT kunden-tauglich. Vor Versand pruefen.</span>
+                                <span class="font-semibold">Preise sind aktiv</span>
                             @else
-                                <span class="italic">Mietpreise und Add-on-Kosten sind aus — dieses Booklet ist kunden-tauglich.</span>
+                                <span class="italic">Mietpreise und Add-on-Kosten sind aus.</span>
                             @endif
                         </div>
                     </div>
