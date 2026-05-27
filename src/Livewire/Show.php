@@ -158,6 +158,9 @@ class Show extends Component
     /** Tage-Eingabe fuers Inline-Edit der Token-Gueltigkeit */
     public int $bookletValidDays = 30;
 
+    /** Map aus show_*-Flags fuer die Booklet-Sektionen; aus Location::bookletOptions() befuellt. */
+    public array $bookletOptions = [];
+
     public function generateBookletShare(): void
     {
         $days = max(1, min(365, $this->bookletValidDays ?: 30));
@@ -208,6 +211,8 @@ class Show extends Component
         $this->beschreibung  = $loc->beschreibung;
         $this->anlaesseInput = is_array($loc->anlaesse) ? implode(', ', $loc->anlaesse) : null;
 
+        $this->bookletOptions = $loc->bookletOptions();
+
         $this->refreshGrundrissState($loc->uuid);
         $this->loadSubRows($loc);
         $this->loadFileReferences();
@@ -215,6 +220,22 @@ class Show extends Component
         $this->loadActivityItems();
 
         $this->resetErrorBag();
+    }
+
+    /**
+     * Live-Toggle einer einzelnen Booklet-Sektion. Persistiert direkt.
+     */
+    public function toggleBookletOption(string $key): void
+    {
+        if (!array_key_exists($key, Location::BOOKLET_OPTION_DEFAULTS)) {
+            return;
+        }
+
+        $options = $this->bookletOptions;
+        $options[$key] = !($options[$key] ?? Location::BOOKLET_OPTION_DEFAULTS[$key]);
+
+        $this->location->forceFill(['booklet_options' => $options])->save();
+        $this->bookletOptions = $this->location->fresh()->bookletOptions();
     }
 
     public function updatedAdresse(?string $value): void

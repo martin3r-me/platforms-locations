@@ -32,15 +32,27 @@ class BookletPdfService
      */
     public function renderHtml(Location $location): string
     {
-        $assets = $this->collectAssets($location);
+        $assets  = $this->collectAssets($location);
+        $options = $location->bookletOptions();
 
         return view('locations::booklet.magazine', [
             'location'  => $location,
-            'hero'      => $assets['hero'],
-            'spread'    => $assets['spread'],
-            'floorPlan' => $assets['floorPlan'],
-            'seatings'  => $location->seatingOptions()->orderBy('sort_order')->orderBy('label')->get(),
-            'anlaesse'  => is_array($location->anlaesse) ? array_values(array_filter($location->anlaesse)) : [],
+            'options'   => $options,
+            'hero'      => $options['show_photos']      ? $assets['hero']      : null,
+            'spread'    => $options['show_photos']      ? $assets['spread']    : [],
+            'floorPlan' => $options['show_grundriss']   ? $assets['floorPlan'] : null,
+            'seatings'  => $options['show_bestuhlungen']
+                ? $location->seatingOptions()->orderBy('sort_order')->orderBy('label')->get()
+                : collect(),
+            'pricings'  => $options['show_mietpreise']
+                ? $location->pricings()->orderBy('sort_order')->orderBy('day_type_label')->get()
+                : collect(),
+            'addons'    => $options['show_addons']
+                ? $location->activeAddons()
+                : collect(),
+            'anlaesse'  => $options['show_anlaesse'] && is_array($location->anlaesse)
+                ? array_values(array_filter($location->anlaesse))
+                : [],
         ])->render();
     }
 

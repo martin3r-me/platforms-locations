@@ -1,27 +1,40 @@
 @php
     /** @var \Platform\Locations\Models\Location $location */
+    /** @var array<string,bool> $options */
     /** @var ?string $hero */
     /** @var array<int,string> $spread */
     /** @var ?string $floorPlan */
     /** @var \Illuminate\Support\Collection $seatings */
+    /** @var \Illuminate\Support\Collection $pricings */
+    /** @var \Illuminate\Support\Collection $addons */
     /** @var array<int,string> $anlaesse */
 
-    $hasSpread     = !empty($spread);
-    $hasSeating    = $seatings->isNotEmpty();
-    $hasAnlaesse   = !empty($anlaesse);
-    $hasAddress    = !empty($location->adresse) || ($location->latitude && $location->longitude);
-    $hasDescription = !empty($location->beschreibung);
-    $hasFloorPlan  = !empty($floorPlan);
+    $opt = fn (string $key) => (bool) ($options[$key] ?? \Platform\Locations\Models\Location::BOOKLET_OPTION_DEFAULTS[$key] ?? false);
 
-    // Eckdaten zusammenstellen
+    $hasSpread      = !empty($spread);
+    $hasSeating     = $seatings->isNotEmpty();
+    $hasPricings    = $pricings->isNotEmpty();
+    $hasAddons      = $addons->isNotEmpty();
+    $hasAnlaesse    = !empty($anlaesse);
+    $hasAddress     = $opt('show_adresse')      && (!empty($location->adresse) || ($location->latitude && $location->longitude));
+    $hasDescription = $opt('show_beschreibung') && !empty($location->beschreibung);
+    $hasFloorPlan   = !empty($floorPlan);
+
+    // Eckdaten — Name/PAX/Fläche immer, der Rest optional pro Toggle.
     $eckdaten = collect([
-        ['label' => 'PAX max.',         'value' => $location->pax_max ? number_format($location->pax_max, 0, ',', '.') : null, 'note' => $location->pax_min ? 'ab ' . $location->pax_min : null],
-        ['label' => 'Fläche',           'value' => $location->groesse_qm ? rtrim(rtrim(number_format($location->groesse_qm, 2, ',', '.'), '0'), ',') . ' m²' : null],
-        ['label' => 'Halle',            'value' => $location->hallennummer],
-        ['label' => 'Mehrfachbelegung', 'value' => $location->mehrfachbelegung ? 'Ja' : 'Nein'],
-        ['label' => 'Barrierefrei',     'value' => $location->barrierefrei ? 'Ja' : 'Nein'],
-        ['label' => 'Gruppe',           'value' => $location->gruppe],
-    ])->filter(fn ($e) => !empty($e['value']))->values();
+        ['label' => 'PAX max.',         'always' => true,                      'value' => $location->pax_max ? number_format($location->pax_max, 0, ',', '.') : null, 'note' => $location->pax_min ? 'ab ' . $location->pax_min : null],
+        ['label' => 'Fläche',           'always' => true,                      'value' => $location->groesse_qm ? rtrim(rtrim(number_format($location->groesse_qm, 2, ',', '.'), '0'), ',') . ' m²' : null],
+        ['label' => 'Halle',            'option' => 'show_hallennummer',       'value' => $location->hallennummer],
+        ['label' => 'Mehrfachbelegung', 'option' => 'show_mehrfachbelegung',   'value' => $location->mehrfachbelegung ? 'Ja' : 'Nein'],
+        ['label' => 'Barrierefrei',     'option' => 'show_barrierefrei',       'value' => $location->barrierefrei ? 'Ja' : 'Nein'],
+        ['label' => 'Gruppe',           'option' => 'show_gruppe',             'value' => $location->gruppe],
+    ])
+        ->filter(fn ($e) => !empty($e['value']))
+        ->filter(fn ($e) => ($e['always'] ?? false) || $opt($e['option']))
+        ->values();
+
+    // Dekorativer Section-Counter fuer "No. 01" Captions.
+    $sectionNr = 0;
 @endphp
 <!doctype html>
 <html lang="de">
@@ -329,6 +342,23 @@
             color: var(--mute);
             margin-left: 1mm;
         }
+        .seating-row__sub {
+            display: block;
+            font-family: 'Inter', system-ui, sans-serif;
+            font-size: 9pt;
+            letter-spacing: 0.05em;
+            color: var(--mute);
+            font-weight: 400;
+            margin-top: 1mm;
+        }
+        .section-note {
+            margin-top: 8mm;
+            font-size: 9pt;
+            line-height: 1.6;
+            color: var(--mute);
+            font-style: italic;
+            max-width: 130mm;
+        }
 
         /* ============== ANLAESSE — PILL-TAGS ============== */
         .tags {
@@ -435,7 +465,7 @@
             <h1 class="cover__name">{{ $location->name }}</h1>
             <div class="cover__row">
                 <div class="cover__row-left">
-                    @if($location->gruppe){{ $location->gruppe }}@endif
+                    @if($opt('show_gruppe') && $location->gruppe){{ $location->gruppe }}@endif
                     @if($location->pax_max) · {{ number_format($location->pax_max, 0, ',', '.') }} PAX @endif
                 </div>
                 <div class="cover__kuerzel">{{ $location->kuerzel }}</div>
@@ -445,10 +475,11 @@
 
     {{-- ============ ECKDATEN + BESCHREIBUNG ============ --}}
     @if($eckdaten->isNotEmpty() || $hasDescription)
+    @php $sectionNr++; @endphp
     <section class="page content">
         <div class="content__header">
             <h2 class="content__title">Eckdaten</h2>
-            <div class="content__caption">No. 01</div>
+            <div class="content__caption">No. {{ sprintf('%02d', $sectionNr) }}</div>
         </div>
 
         @if($eckdaten->isNotEmpty())
@@ -488,10 +519,11 @@
 
     {{-- ============ BESTUHLUNG ============ --}}
     @if($hasSeating)
+    @php $sectionNr++; @endphp
     <section class="page content">
         <div class="content__header">
             <h2 class="content__title">Bestuhlung</h2>
-            <div class="content__caption">No. 02</div>
+            <div class="content__caption">No. {{ sprintf('%02d', $sectionNr) }}</div>
         </div>
 
         <div class="seatings">
@@ -513,12 +545,86 @@
     </section>
     @endif
 
+    {{-- ============ MIETPREISE ============ --}}
+    @if($hasPricings)
+    @php $sectionNr++; @endphp
+    <section class="page content">
+        <div class="content__header">
+            <h2 class="content__title">Mietpreise</h2>
+            <div class="content__caption">No. {{ sprintf('%02d', $sectionNr) }}</div>
+        </div>
+
+        <div class="seatings">
+            @foreach($pricings as $p)
+                <div class="seating-row">
+                    <div class="seating-row__label">
+                        {{ $p->label ?: 'Miete ' . $p->day_type_label }}
+                        @if($p->label && $p->day_type_label)
+                            <span class="seating-row__sub">{{ $p->day_type_label }}</span>
+                        @endif
+                    </div>
+                    <div>
+                        <span class="seating-row__pax">{{ number_format((float) $p->price_net, 2, ',', '.') }}</span>
+                        <span class="seating-row__suffix">€ netto / Tag</span>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+
+        <p class="section-note">Preise verstehen sich netto, zzgl. gesetzlicher Mehrwertsteuer.</p>
+
+        <div class="footer">
+            <span>{{ $location->name }}</span>
+            <span class="footer__brand">{{ $location->kuerzel }}</span>
+        </div>
+    </section>
+    @endif
+
+    {{-- ============ ADD-ONS ============ --}}
+    @if($hasAddons)
+    @php
+        $sectionNr++;
+        $unitLabels = [
+            'pro_tag'     => '€ netto / Tag',
+            'pro_va_tag'  => '€ netto / Veranstaltungstag',
+            'einmalig'    => '€ netto / einmalig',
+            'pro_stueck'  => '€ netto / Stueck',
+        ];
+    @endphp
+    <section class="page content">
+        <div class="content__header">
+            <h2 class="content__title">Add-ons</h2>
+            <div class="content__caption">No. {{ sprintf('%02d', $sectionNr) }}</div>
+        </div>
+
+        <div class="seatings">
+            @foreach($addons as $a)
+                <div class="seating-row">
+                    <div class="seating-row__label">{{ $a->label }}</div>
+                    <div>
+                        <span class="seating-row__pax">{{ number_format((float) $a->price_net, 2, ',', '.') }}</span>
+                        <span class="seating-row__suffix">{{ $unitLabels[$a->unit] ?? '€ netto' }}</span>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+
+        <p class="section-note">Optionale Zusatzleistungen. Preise netto, zzgl. gesetzlicher Mehrwertsteuer.</p>
+
+        <div class="footer">
+            <span>{{ $location->name }}</span>
+            <span class="footer__brand">{{ $location->kuerzel }}</span>
+        </div>
+    </section>
+    @endif
+
     {{-- ============ GRUNDRISS ============ --}}
     @if($hasFloorPlan)
+    @php $sectionNr++; @endphp
     <section class="page content">
         <div class="content__header">
             <h2 class="content__title">Grundriss</h2>
-            <div class="content__caption">Plan</div>
+            <div class="content__caption">No. {{ sprintf('%02d', $sectionNr) }}</div>
         </div>
 
         <div class="floorplan">
@@ -541,11 +647,12 @@
             $hasAnlaesse                => 'Anlässe',
             default                     => 'Adresse',
         };
+        $sectionNr++;
     @endphp
     <section class="page content">
         <div class="content__header">
             <h2 class="content__title">{{ $sectionTitle }}</h2>
-            <div class="content__caption">No. 03</div>
+            <div class="content__caption">No. {{ sprintf('%02d', $sectionNr) }}</div>
         </div>
 
         @if($hasAnlaesse)

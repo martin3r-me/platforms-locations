@@ -45,6 +45,7 @@ class Location extends Model implements HasFileContext
         'anlaesse',
         'booklet_share_token',
         'booklet_share_expires_at',
+        'booklet_options',
     ];
 
     protected $casts = [
@@ -60,6 +61,7 @@ class Location extends Model implements HasFileContext
         'barrierefrei' => 'boolean',
         'anlaesse' => 'array',
         'booklet_share_expires_at' => 'datetime',
+        'booklet_options' => 'array',
     ];
 
     protected $hidden = [
@@ -551,5 +553,54 @@ class Location extends Model implements HasFileContext
             return null;
         }
         return route('locations.booklet.public.pdf', ['token' => $this->booklet_share_token]);
+    }
+
+    // ================= Booklet-Optionen (pro Location konfigurierbar) =================
+
+    /**
+     * Alle Booklet-Optionen + ihre Defaults.
+     *
+     * Name / Kuerzel / PAX / Flaeche sind bewusst NICHT optional — sie
+     * gehoeren in jedes Booklet. Mietpreise und Add-ons sind default
+     * `false`, damit der Default-Output kundentauglich bleibt; alle
+     * anderen Sektionen sind default `true`.
+     *
+     * @var array<string, bool>
+     */
+    public const BOOKLET_OPTION_DEFAULTS = [
+        // Eckdaten-Felder
+        'show_hallennummer'   => true,
+        'show_mehrfachbelegung' => true,
+        'show_barrierefrei'   => true,
+        'show_gruppe'         => true,
+        // Inhalts-Sektionen
+        'show_beschreibung'   => true,
+        'show_photos'         => true,
+        'show_grundriss'      => true,
+        'show_bestuhlungen'   => true,
+        'show_anlaesse'       => true,
+        'show_adresse'        => true,
+        // Preis-Sektionen (default aus -> kundentaugliches Booklet)
+        'show_mietpreise'     => false,
+        'show_addons'         => false,
+    ];
+
+    /**
+     * Liefert die effektiven Booklet-Optionen: Defaults gemerged mit dem,
+     * was in der DB-Spalte `booklet_options` steht. Unbekannte Keys werden
+     * verworfen, fehlende Keys auf Default gesetzt.
+     *
+     * @return array<string, bool>
+     */
+    public function bookletOptions(): array
+    {
+        $current = is_array($this->booklet_options) ? $this->booklet_options : [];
+        $merged = [];
+        foreach (self::BOOKLET_OPTION_DEFAULTS as $key => $default) {
+            $merged[$key] = array_key_exists($key, $current)
+                ? (bool) $current[$key]
+                : $default;
+        }
+        return $merged;
     }
 }

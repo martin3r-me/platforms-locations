@@ -809,9 +809,73 @@
                         </a>
                     </div>
 
-                    <p class="text-[0.6rem] text-[var(--ui-muted)] italic">
-                        Das Booklet zeigt Stammdaten, Bilder, Bestuhlungen, Anlaesse und Adresse. Mietpreise und Add-on-Kosten sind nicht enthalten — das PDF ist kunden-tauglich.
-                    </p>
+                    {{-- ===== Sektions-Auswahl ===== --}}
+                    @php
+                        $bookletSections = [
+                            ['key' => 'show_beschreibung',     'label' => 'Beschreibungs-Text',       'group' => 'inhalt'],
+                            ['key' => 'show_photos',           'label' => 'Fotos (Cover + Spread)',   'group' => 'inhalt'],
+                            ['key' => 'show_grundriss',        'label' => 'Grundriss-Seite',          'group' => 'inhalt'],
+                            ['key' => 'show_bestuhlungen',     'label' => 'Bestuhlungs-Optionen',     'group' => 'inhalt'],
+                            ['key' => 'show_anlaesse',         'label' => 'Anlässe',                  'group' => 'inhalt'],
+                            ['key' => 'show_adresse',          'label' => 'Adresse',                  'group' => 'inhalt'],
+                            ['key' => 'show_hallennummer',     'label' => 'Hallennummer',             'group' => 'eckdaten'],
+                            ['key' => 'show_mehrfachbelegung', 'label' => 'Mehrfachbelegung',         'group' => 'eckdaten'],
+                            ['key' => 'show_barrierefrei',     'label' => 'Barrierefrei',             'group' => 'eckdaten'],
+                            ['key' => 'show_gruppe',           'label' => 'Gruppe',                   'group' => 'eckdaten'],
+                            ['key' => 'show_mietpreise',       'label' => 'Mietpreise',               'group' => 'preise'],
+                            ['key' => 'show_addons',           'label' => 'Add-ons',                  'group' => 'preise'],
+                        ];
+                        $groups = [
+                            'inhalt'   => ['title' => 'Sektionen',  'subtitle' => 'Welche Magazin-Seiten erscheinen.'],
+                            'eckdaten' => ['title' => 'Eckdaten',   'subtitle' => 'Felder im Eckdaten-Block. Name, PAX und Fläche sind immer drin.'],
+                            'preise'   => ['title' => 'Preise',     'subtitle' => 'Standardmäßig aus — bei Aktivierung sind die Beträge im Kunden-PDF sichtbar.'],
+                        ];
+                        $bookletShowsPrices = ($bookletOptions['show_mietpreise'] ?? false) || ($bookletOptions['show_addons'] ?? false);
+                    @endphp
+
+                    <div class="pt-3 border-t border-[var(--ui-border)]/40">
+                        <div class="flex items-baseline justify-between mb-3">
+                            <h4 class="text-[0.7rem] font-bold uppercase tracking-wider text-[var(--ui-secondary)]">Was soll im Booklet erscheinen?</h4>
+                            <span class="text-[0.6rem] text-[var(--ui-muted)] italic">Aenderungen wirken beim naechsten PDF/Vorschau.</span>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            @foreach($groups as $groupKey => $groupMeta)
+                                <div class="space-y-1.5">
+                                    <p class="text-[0.6rem] font-bold uppercase tracking-wider text-[var(--ui-muted)]">{{ $groupMeta['title'] }}</p>
+                                    <p class="text-[0.6rem] text-[var(--ui-muted)] leading-snug mb-1.5">{{ $groupMeta['subtitle'] }}</p>
+                                    @foreach(array_filter($bookletSections, fn($s) => $s['group'] === $groupKey) as $sec)
+                                        @php $active = (bool) ($bookletOptions[$sec['key']] ?? false); @endphp
+                                        <button type="button" wire:click="toggleBookletOption('{{ $sec['key'] }}')"
+                                                class="w-full flex items-center gap-2 text-left text-xs px-2 py-1.5 rounded-md border transition-colors
+                                                       {{ $active
+                                                           ? 'bg-[var(--ui-primary)]/8 border-[var(--ui-primary)]/40 text-[var(--ui-secondary)]'
+                                                           : 'bg-white border-[var(--ui-border)] text-[var(--ui-muted)] hover:bg-[var(--ui-muted-5)]' }}">
+                                            <span class="flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center
+                                                         {{ $active
+                                                             ? 'bg-[var(--ui-primary)] border-[var(--ui-primary)] text-white'
+                                                             : 'bg-white border-[var(--ui-border)]' }}">
+                                                @if($active) @svg('heroicon-s-check', 'w-3 h-3') @endif
+                                            </span>
+                                            <span class="flex-1 leading-tight">{{ $sec['label'] }}</span>
+                                        </button>
+                                    @endforeach
+                                </div>
+                            @endforeach
+                        </div>
+
+                        <div class="mt-3 text-[0.62rem] flex items-center gap-1.5 px-2 py-1 rounded
+                                    {{ $bookletShowsPrices
+                                       ? 'bg-amber-50 border border-amber-200 text-amber-800'
+                                       : 'text-[var(--ui-muted)]' }}">
+                            @if($bookletShowsPrices)
+                                @svg('heroicon-o-exclamation-triangle', 'w-3.5 h-3.5 flex-shrink-0')
+                                <span><span class="font-semibold">Preise sind aktiv:</span> dieses Booklet ist NICHT kunden-tauglich. Vor Versand pruefen.</span>
+                            @else
+                                <span class="italic">Mietpreise und Add-on-Kosten sind aus — dieses Booklet ist kunden-tauglich.</span>
+                            @endif
+                        </div>
+                    </div>
                 </div>
 
                 {{-- ===== Loading-Overlay fuer PDF-Render ===== --}}
