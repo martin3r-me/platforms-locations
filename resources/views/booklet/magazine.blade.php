@@ -414,33 +414,52 @@
         }
         .site-intro__name {
             font-family: 'Fraunces', Georgia, serif;
-            font-size: 40pt;
+            font-size: 38pt;
             line-height: 0.95;
             font-weight: 400;
             letter-spacing: -0.02em;
             margin: 0 0 8mm 0;
         }
         .site-intro__text {
-            font-size: 11pt;
-            line-height: 1.7;
+            font-size: 10pt;
+            line-height: 1.6;
             color: #2a2722;
-            max-width: 150mm;
             white-space: pre-wrap;
-            margin: 0 0 10mm 0;
+            margin: 0;
+            /* Magazin-2-Spalten-Fliesstext, damit auch lange Areal-Texte
+               auf eine A4-Seite passen ohne abzuschneiden. */
+            columns: 2;
+            column-gap: 8mm;
+            column-rule: 1px solid rgba(20, 16, 10, 0.08);
+            text-align: justify;
+            hyphens: auto;
         }
-        .site-intro__images {
+        /* ============== SITE-BILDER (eigene Seite, ungerahmtes Magazin-Grid) ============== */
+        .site-images {
+            padding: 12mm;
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
             gap: 3mm;
-            margin-top: 8mm;
+            width: 210mm;
+            height: 297mm;
+            background: var(--paper-warm);
         }
-        .site-intro__images--n1 { grid-template-columns: 1fr; }
-        .site-intro__images--n2 { grid-template-columns: 1fr 1fr; }
-        .site-intro__img {
+        .site-images--n1 {
+            grid-template-columns: 1fr;
+            grid-template-rows: 1fr;
+        }
+        .site-images--n2 {
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr;
+        }
+        .site-images--n3 {
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+        }
+        .site-images--n3 .si1 { grid-column: 1 / -1; }
+        .site-images__img {
             background-size: cover;
             background-position: center;
             background-color: #d6cdb9;
-            aspect-ratio: 4 / 3;
             border-radius: 1mm;
         }
 
@@ -520,7 +539,11 @@
     </section>
 
     {{-- ============ SITE-EINLEITUNG (optional, vor Eckdaten) ============ --}}
-    @if($hasSite)
+    @php $hasSiteText = $hasSite && !empty($site->description); @endphp
+    @php $hasSiteImages = $hasSite && !empty($siteImages); @endphp
+
+    {{-- Seite 1: Beschreibung (2-spaltiger Magazin-Fliesstext) --}}
+    @if($hasSite && ($hasSiteText || !$hasSiteImages))
     @php $sectionNr++; @endphp
     <section class="page content site-intro">
         <div class="content__header">
@@ -531,23 +554,26 @@
         <div class="site-intro__eyebrow">Areal-Einleitung</div>
         <h3 class="site-intro__name">{{ $site->name }}</h3>
 
-        @if(!empty($site->description))
-            <p class="site-intro__text">{{ $site->description }}</p>
-        @endif
-
-        @if(!empty($siteImages))
-            @php $n = min(count($siteImages), 3); @endphp
-            <div class="site-intro__images site-intro__images--n{{ $n }}">
-                @foreach(array_slice($siteImages, 0, $n) as $url)
-                    <div class="site-intro__img" style="background-image:url('{{ $url }}')"></div>
-                @endforeach
-            </div>
+        @if($hasSiteText)
+            <div class="site-intro__text">{{ $site->description }}</div>
         @endif
 
         <div class="footer">
             <span>{{ $location->name }}</span>
             <span class="footer__brand">{{ $location->kuerzel }}</span>
         </div>
+    </section>
+    @endif
+
+    {{-- Seite 2: Site-Bilder, voll-bleed Magazin-Grid --}}
+    @if($hasSiteImages)
+    @php
+        $n = min(count($siteImages), 3);
+    @endphp
+    <section class="page site-images site-images--n{{ $n }}">
+        @foreach(array_slice($siteImages, 0, $n) as $i => $url)
+            <div class="site-images__img si{{ $i + 1 }}" style="background-image:url('{{ $url }}')"></div>
+        @endforeach
     </section>
     @endif
 
