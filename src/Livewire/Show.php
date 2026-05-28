@@ -40,9 +40,6 @@ class Show extends Component
     #[Validate('required|string|max:20')]
     public string $kuerzel = '';
 
-    #[Validate('nullable|string|max:255')]
-    public ?string $gruppe = null;
-
     #[Validate('nullable|integer|min:0|max:65535')]
     public ?int $pax_min = null;
 
@@ -193,7 +190,6 @@ class Show extends Component
 
         $this->name             = $loc->name;
         $this->kuerzel          = $loc->kuerzel;
-        $this->gruppe           = $loc->gruppe;
         $this->pax_min          = $loc->pax_min;
         $this->pax_max          = $loc->pax_max;
         $this->mehrfachbelegung = (bool) $loc->mehrfachbelegung;

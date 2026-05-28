@@ -29,7 +29,6 @@ class Location extends Model implements HasFileContext
         'site_id',
         'name',
         'kuerzel',
-        'gruppe',
         'pax_min',
         'pax_max',
         'mehrfachbelegung',

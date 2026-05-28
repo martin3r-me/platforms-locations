@@ -23,7 +23,7 @@ class ListLocationsTool implements ToolContract, ToolMetadataContract
 
     public function getDescription(): string
     {
-        return 'GET /locations?team_id={id}&gruppe=&search=&sort=[...] - Listet Locations (Räume/Standorte) des aktuellen Teams. REST-Parameter: team_id (optional, integer) - Filter nach Team-ID, sonst aktuelles Team. gruppe (optional, string) - Filter nach Gruppe. search (optional, string) - Sucht in name und kuerzel. filters, sort, limit, offset (optional).';
+        return 'GET /locations?team_id={id}&site_id=&site_uuid=&search=&sort=[...] - Listet Locations (Räume/Standorte) des aktuellen Teams. REST-Parameter: team_id (optional, integer) - Filter nach Team-ID, sonst aktuelles Team. site_id ODER site_uuid (optional) - Filter nach LocationSite-Zugehoerigkeit. search (optional, string) - Sucht in name, kuerzel, adresse, hallennummer, besonderheit. filters, sort, limit, offset (optional).';
     }
 
     public function getSchema(): array
@@ -36,9 +36,13 @@ class ListLocationsTool implements ToolContract, ToolMetadataContract
                         'type' => 'integer',
                         'description' => 'Optional: Filter nach Team-ID. Wenn nicht angegeben, wird das aktuelle Team aus dem Kontext verwendet.',
                     ],
-                    'gruppe' => [
+                    'site_id' => [
+                        'type' => 'integer',
+                        'description' => 'Optional: Filter nach LocationSite-ID (Eltern-Container).',
+                    ],
+                    'site_uuid' => [
                         'type' => 'string',
-                        'description' => 'Optional: Filter nach Gruppe (z.B. "Hauptgebäude").',
+                        'description' => 'Optional: Filter nach LocationSite-UUID. Alternative zu site_id.',
                     ],
                     'mehrfachbelegung' => [
                         'type' => 'boolean',
@@ -72,20 +76,30 @@ class ListLocationsTool implements ToolContract, ToolMetadataContract
                 return ToolResult::error('ACCESS_DENIED', "Du hast keinen Zugriff auf Team-ID {$teamId}.");
             }
 
-            $query = Location::query()->where('team_id', $teamId);
+            $query = Location::query()->with('site:id,uuid,name')->where('team_id', $teamId);
 
-            if (!empty($arguments['gruppe'])) {
-                $query->where('gruppe', $arguments['gruppe']);
+            // Site-Filter: site_id direkt oder site_uuid (Lookup).
+            if (!empty($arguments['site_id'])) {
+                $query->where('site_id', (int) $arguments['site_id']);
+            } elseif (!empty($arguments['site_uuid'])) {
+                $site = \Platform\Locations\Models\LocationSite::where('uuid', (string) $arguments['site_uuid'])
+                    ->where('team_id', $teamId)
+                    ->first();
+                if ($site) {
+                    $query->where('site_id', $site->id);
+                } else {
+                    $query->whereRaw('1=0'); // unbekannte UUID -> leeres Result
+                }
             }
             if (array_key_exists('mehrfachbelegung', $arguments) && $arguments['mehrfachbelegung'] !== null) {
                 $query->where('mehrfachbelegung', (bool) $arguments['mehrfachbelegung']);
             }
 
             $this->applyStandardFilters($query, $arguments, [
-                'name', 'kuerzel', 'gruppe', 'pax_min', 'pax_max', 'mehrfachbelegung', 'adresse',
+                'name', 'kuerzel', 'site_id', 'pax_min', 'pax_max', 'mehrfachbelegung', 'adresse',
                 'groesse_qm', 'hallennummer', 'barrierefrei', 'created_at', 'updated_at',
             ]);
-            $this->applyStandardSearch($query, $arguments, ['name', 'kuerzel', 'gruppe', 'adresse', 'hallennummer', 'besonderheit']);
+            $this->applyStandardSearch($query, $arguments, ['name', 'kuerzel', 'adresse', 'hallennummer', 'besonderheit']);
             $this->applyStandardSort($query, $arguments, ['name', 'kuerzel', 'sort_order', 'created_at', 'updated_at'], 'sort_order', 'asc');
             $this->applyStandardPagination($query, $arguments);
 
@@ -94,7 +108,9 @@ class ListLocationsTool implements ToolContract, ToolMetadataContract
                 'uuid'             => $l->uuid,
                 'name'             => $l->name,
                 'kuerzel'          => $l->kuerzel,
-                'gruppe'           => $l->gruppe,
+                'site_id'          => $l->site_id,
+                'site_uuid'        => $l->site?->uuid,
+                'site_name'        => $l->site?->name,
                 'pax_min'          => $l->pax_min,
                 'pax_max'          => $l->pax_max,
                 'mehrfachbelegung' => (bool) $l->mehrfachbelegung,

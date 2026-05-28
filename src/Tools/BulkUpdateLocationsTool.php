@@ -27,7 +27,7 @@ class BulkUpdateLocationsTool implements ToolContract, ToolMetadataContract
     public function getDescription(): string
     {
         return 'PATCH /locations/bulk - Aktualisiert mehrere Locations. Zwei Modi: '
-            . '(1) {"location_ids":[1,2,3],"data":{"gruppe":"Neu"}} für gemeinsame Änderung. '
+            . '(1) {"location_ids":[1,2,3],"data":{"site_uuid":"019…"}} für gemeinsame Änderung. '
             . '(2) {"updates":[{"location_id":1,"name":"..."},{"uuid":"...","pax_max":50}]} für individuelle Änderungen. '
             . 'Genau einer der beiden Modi muss verwendet werden.';
     }
@@ -37,7 +37,8 @@ class BulkUpdateLocationsTool implements ToolContract, ToolMetadataContract
         $fields = [
             'name'             => ['type' => 'string'],
             'kuerzel'          => ['type' => 'string'],
-            'gruppe'           => ['type' => 'string'],
+            'site_id'          => ['type' => 'integer'],
+            'site_uuid'        => ['type' => 'string'],
             'pax_min'          => ['type' => 'integer'],
             'pax_max'          => ['type' => 'integer', 'description' => 'Max. Kapazität (inkl. Personal).'],
             'mehrfachbelegung' => ['type' => 'boolean'],

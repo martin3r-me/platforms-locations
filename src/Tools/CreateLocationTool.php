@@ -7,6 +7,7 @@ use Platform\Core\Contracts\ToolContext;
 use Platform\Core\Contracts\ToolResult;
 use Platform\Core\Contracts\ToolMetadataContract;
 use Platform\Locations\Models\Location;
+use Platform\Locations\Models\LocationSite;
 use Platform\Locations\Services\GeocodingService;
 use Platform\Locations\Tools\Concerns\NormalizesLocationFields;
 use Platform\Locations\Tools\Concerns\RecommendsMissingLocationFields;
@@ -25,7 +26,7 @@ class CreateLocationTool implements ToolContract, ToolMetadataContract
 
     /** @var array<int,string> Feldnamen, die das Tool akzeptiert (fuer ignored_fields-Diff) */
     protected const KNOWN_FIELDS = [
-        'name', 'kuerzel', 'team_id', 'gruppe', 'pax_min', 'pax_max',
+        'name', 'kuerzel', 'team_id', 'site_id', 'site_uuid', 'pax_min', 'pax_max',
         'mehrfachbelegung', 'adresse', 'latitude', 'longitude',
         'groesse_qm', 'hallennummer',
         'barrierefrei', 'besonderheit', 'beschreibung', 'anlaesse',
@@ -39,7 +40,7 @@ class CreateLocationTool implements ToolContract, ToolMetadataContract
 
     public function getDescription(): string
     {
-        return 'POST /locations - Erstellt eine neue Location. REST-Parameter: name (required), kuerzel (required, max 20), team_id (optional), gruppe (optional), pax_min (optional), pax_max (optional, gemeint als max inkl. Personal), mehrfachbelegung (optional, default false), adresse (optional, wird automatisch via Nominatim geocoded -> setzt latitude/longitude, ausser geocode=false oder lat/lng explizit mitgegeben), latitude/longitude (optional, beide oder keiner), groesse_qm (optional, decimal), hallennummer (optional), barrierefrei (optional, boolean, default false), besonderheit (optional, kurze Hervorhebung), beschreibung (optional, langer Fließtext für Marketing/Historie/Kundeninfo), anlaesse (optional, array of strings z.B. ["Hochzeit","Firmenfeier"]), geocode (optional, boolean, default true — auf false setzen, um den Nominatim-Lookup zu unterdruecken).';
+        return 'POST /locations - Erstellt eine neue Location. REST-Parameter: name (required), kuerzel (required, max 20), team_id (optional), site_id ODER site_uuid (optional — Zuordnung zu einer LocationSite), pax_min (optional), pax_max (optional, gemeint als max inkl. Personal), mehrfachbelegung (optional, default false), adresse (optional, wird automatisch via Nominatim geocoded -> setzt latitude/longitude, ausser geocode=false oder lat/lng explizit mitgegeben), latitude/longitude (optional, beide oder keiner), groesse_qm (optional, decimal), hallennummer (optional), barrierefrei (optional, boolean, default false), besonderheit (optional, kurze Hervorhebung), beschreibung (optional, langer Fließtext für Marketing/Historie/Kundeninfo), anlaesse (optional, array of strings z.B. ["Hochzeit","Firmenfeier"]), geocode (optional, boolean, default true — auf false setzen, um den Nominatim-Lookup zu unterdruecken).';
     }
 
     public function getSchema(): array
@@ -59,9 +60,13 @@ class CreateLocationTool implements ToolContract, ToolMetadataContract
                     'type' => 'integer',
                     'description' => 'Optional: Team-ID. Wenn nicht angegeben, wird das aktuelle Team aus dem Kontext verwendet.',
                 ],
-                'gruppe' => [
+                'site_id' => [
+                    'type' => 'integer',
+                    'description' => 'Optional: ID einer bestehenden LocationSite (Eltern-Container). Alternativ site_uuid.',
+                ],
+                'site_uuid' => [
                     'type' => 'string',
-                    'description' => 'Optional: Gruppierung (z.B. Gebäude).',
+                    'description' => 'Optional: UUID einer bestehenden LocationSite. Wird zu site_id aufgeloest.',
                 ],
                 'pax_min' => [
                     'type' => 'integer',
@@ -204,12 +209,14 @@ class CreateLocationTool implements ToolContract, ToolMetadataContract
                 }
             }
 
+            $siteId = $this->resolveSiteIdForCreate($arguments, $teamId);
+
             $location = Location::create([
                 'team_id'          => $teamId,
                 'user_id'          => $context->user->id,
+                'site_id'          => $siteId,
                 'name'             => $arguments['name'],
                 'kuerzel'          => $normalizedKuerzel,
-                'gruppe'           => $arguments['gruppe'] ?? null,
                 'pax_min'          => isset($arguments['pax_min']) ? (int) $arguments['pax_min'] : null,
                 'pax_max'          => isset($arguments['pax_max']) ? (int) $arguments['pax_max'] : null,
                 'mehrfachbelegung' => (bool) ($arguments['mehrfachbelegung'] ?? false),
@@ -243,12 +250,16 @@ class CreateLocationTool implements ToolContract, ToolMetadataContract
                 ];
             }
 
+            $location->loadMissing('site:id,uuid,name');
+
             return ToolResult::success([
                 'id'               => $location->id,
                 'uuid'             => $location->uuid,
                 'name'             => $location->name,
                 'kuerzel'          => $location->kuerzel,
-                'gruppe'           => $location->gruppe,
+                'site_id'          => $location->site_id,
+                'site_uuid'        => $location->site?->uuid,
+                'site_name'        => $location->site?->name,
                 'pax_min'          => $location->pax_min,
                 'pax_max'          => $location->pax_max,
                 'mehrfachbelegung' => (bool) $location->mehrfachbelegung,
@@ -287,6 +298,30 @@ class CreateLocationTool implements ToolContract, ToolMetadataContract
             'hall_number' => 'hallennummer',
             'accessible'  => 'barrierefrei',
         ];
+    }
+
+    /**
+     * Loest site_id / site_uuid aus den Arguments zu einer gueltigen
+     * LocationSite-ID des Teams auf. Liefert null wenn keiner gegeben.
+     * Wirft NICHT — bei ungueltigem Wert wird einfach kein Site gesetzt
+     * (klassische graceful-Logik fuer Multi-Step-Calls). Fuer strikteres
+     * Verhalten kann der Caller vorher selber `locations.sites.GET`.
+     */
+    protected function resolveSiteIdForCreate(array $arguments, int $teamId): ?int
+    {
+        if (!empty($arguments['site_id'])) {
+            $exists = LocationSite::where('id', (int) $arguments['site_id'])
+                ->where('team_id', $teamId)
+                ->exists();
+            return $exists ? (int) $arguments['site_id'] : null;
+        }
+        if (!empty($arguments['site_uuid'])) {
+            $site = LocationSite::where('uuid', (string) $arguments['site_uuid'])
+                ->where('team_id', $teamId)
+                ->first();
+            return $site?->id;
+        }
+        return null;
     }
 
     public function getMetadata(): array

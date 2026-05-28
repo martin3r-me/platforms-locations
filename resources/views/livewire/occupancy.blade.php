@@ -8,10 +8,13 @@
         ['value' => 'all',   'label' => '3 Monate',    'icon' => 'heroicon-o-arrow-trending-up'],
     ];
 
-    $groupOptions = array_merge(
+    $siteOptions = array_merge(
         [['value' => '', 'label' => 'Alle']],
-        array_map(fn($g) => ['value' => $g, 'label' => $g], $roomGroups)
+        $sites->map(fn ($s) => ['value' => $s->uuid, 'label' => $s->name])->toArray()
     );
+    $activeSiteName = $activeSite
+        ? optional($sites->firstWhere('uuid', $activeSite))->name
+        : null;
 
     $statusColor = [
         'Vertrag'    => ['bg' => '#dcfce7', 'color' => '#065f46', 'border' => '#86efac'],
@@ -56,8 +59,8 @@
                     <h1 class="text-xl font-bold text-[var(--ui-secondary)] m-0">Raum-Auslastung</h1>
                     <p class="text-xs text-[var(--ui-muted)] mt-1">
                         Übersicht der Buchungen für {{ $periodLabel }}
-                        @if($activeGroup)
-                            · Gruppe <span class="font-semibold text-[var(--ui-secondary)]">{{ $activeGroup }}</span>
+                        @if($activeSiteName)
+                            · Site <span class="font-semibold text-[var(--ui-secondary)]">{{ $activeSiteName }}</span>
                         @endif
                     </p>
                 </div>
@@ -80,16 +83,16 @@
                         />
                     </div>
 
-                    {{-- Gruppe --}}
-                    @if(!empty($roomGroups))
+                    {{-- Site --}}
+                    @if($sites->isNotEmpty())
                         <div class="flex items-center gap-3 flex-wrap border-t border-[var(--ui-border)]/40 pt-4">
                             <span class="text-[0.65rem] font-bold uppercase tracking-wider text-[var(--ui-muted)] w-20 flex-shrink-0">
-                                Gruppe
+                                Site
                             </span>
                             <x-ui-segmented-toggle
-                                model="activeGroup"
-                                :current="$activeGroup"
-                                :options="$groupOptions"
+                                model="activeSite"
+                                :current="$activeSite"
+                                :options="$siteOptions"
                                 size="sm"
                                 activeVariant="secondary"
                             />

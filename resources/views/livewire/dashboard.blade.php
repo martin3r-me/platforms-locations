@@ -48,10 +48,10 @@
                     size="lg"
                 />
                 <x-ui-dashboard-tile
-                    title="Gruppen"
-                    :count="$uniqueGroups"
+                    title="Sites"
+                    :count="$uniqueSites"
                     subtitle="unterschiedlich"
-                    icon="squares-2x2"
+                    icon="building-library"
                     variant="secondary"
                     size="lg"
                 />
@@ -79,14 +79,14 @@
     <x-slot name="sidebar">
         <x-ui-page-sidebar title="Übersicht" width="w-80" :defaultOpen="true">
             <div class="p-4 space-y-6">
-                {{-- Gruppen-Breakdown --}}
+                {{-- Site-Breakdown --}}
                 <div>
-                    <h3 class="text-xs font-semibold uppercase tracking-wide text-[var(--ui-muted)] mb-3">Gruppen</h3>
-                    @if($groupBreakdown->isEmpty())
-                        <p class="text-xs text-[var(--ui-muted)]">Keine Gruppen gepflegt.</p>
+                    <h3 class="text-xs font-semibold uppercase tracking-wide text-[var(--ui-muted)] mb-3">Sites</h3>
+                    @if($siteBreakdown->isEmpty())
+                        <p class="text-xs text-[var(--ui-muted)]">Noch keine Sites gepflegt.</p>
                     @else
                         <div class="space-y-2">
-                            @foreach($groupBreakdown as $group)
+                            @foreach($siteBreakdown as $group)
                                 <div class="p-2.5 rounded-md border border-[var(--ui-border)]/40 bg-[var(--ui-muted-5)]">
                                     <div class="flex items-center justify-between mb-1">
                                         <span class="text-xs font-semibold text-[var(--ui-secondary)] truncate">{{ $group['name'] }}</span>

@@ -69,12 +69,16 @@ class GetLocationTool implements ToolContract, ToolMetadataContract
                 return ToolResult::error('ACCESS_DENIED', 'Du hast keinen Zugriff auf diese Location.');
             }
 
+            $location->loadMissing('site:id,uuid,name');
+
             return ToolResult::success([
                 'id'               => $location->id,
                 'uuid'             => $location->uuid,
                 'name'             => $location->name,
                 'kuerzel'          => $location->kuerzel,
-                'gruppe'           => $location->gruppe,
+                'site_id'          => $location->site_id,
+                'site_uuid'        => $location->site?->uuid,
+                'site_name'        => $location->site?->name,
                 'pax_min'          => $location->pax_min,
                 'pax_max'          => $location->pax_max,
                 'mehrfachbelegung' => (bool) $location->mehrfachbelegung,

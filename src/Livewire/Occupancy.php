@@ -6,14 +6,16 @@ use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Platform\Locations\Models\Location;
+use Platform\Locations\Models\LocationSite;
 
 class Occupancy extends Component
 {
     #[Url(as: 'period', except: 'month')]
     public string $period = 'month';
 
-    #[Url(as: 'gruppe', except: '')]
-    public string $activeGroup = '';
+    /** Site-UUID, nach der gefiltert werden soll. Leerstring = alle Sites. */
+    #[Url(as: 'site', except: '')]
+    public string $activeSite = '';
 
     public function updatingPeriod($value): void
     {
@@ -47,14 +49,20 @@ class Occupancy extends Component
         $team = Auth::user()->currentTeam;
 
         $locations = Location::where('team_id', $team->id)
+            ->with('site:id,uuid,name')
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
 
-        $roomGroups = $locations->pluck('gruppe')->filter()->unique()->values()->toArray();
+        // Liste aller Sites mit mindestens einer Location im Team — bildet die
+        // Filter-Optionen oben in der View.
+        $sites = LocationSite::where('team_id', $team->id)
+            ->whereHas('locations', fn ($q) => $q->where('team_id', $team->id))
+            ->orderBy('name')
+            ->get(['uuid', 'name']);
 
-        $filtered = $this->activeGroup
-            ? $locations->where('gruppe', $this->activeGroup)->values()
+        $filtered = $this->activeSite
+            ? $locations->filter(fn ($l) => $l->site && $l->site->uuid === $this->activeSite)->values()
             : $locations;
 
         $roomNames = $filtered->pluck('kuerzel')->toArray() ?: $locations->pluck('kuerzel')->toArray();
@@ -68,7 +76,7 @@ class Occupancy extends Component
         return view('locations::livewire.occupancy', [
             'locations'    => $locations,
             'venueRooms'   => $locations,
-            'roomGroups'   => $roomGroups,
+            'sites'        => $sites,
             'roomNames'    => $roomNames,
             'periodStart'  => $periodStart,
             'periodEnd'    => $periodEnd,

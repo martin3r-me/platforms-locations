@@ -18,9 +18,6 @@ class Manage extends Component
     #[Validate('required|string|max:20')]
     public string $kuerzel = '';
 
-    #[Validate('nullable|string|max:255')]
-    public ?string $gruppe = null;
-
     #[Validate('nullable|integer|min:0|max:65535')]
     public ?int $pax_min = null;
 
@@ -56,7 +53,7 @@ class Manage extends Component
     public function resetForm(): void
     {
         $this->reset([
-            'name', 'kuerzel', 'gruppe',
+            'name', 'kuerzel',
             'pax_min', 'pax_max', 'mehrfachbelegung',
             'adresse', 'latitude', 'longitude', 'addressSuggestions',
         ]);
@@ -120,6 +117,7 @@ class Manage extends Component
         $team = Auth::user()->currentTeam;
 
         $locations = Location::where('team_id', $team->id)
+            ->with('site:id,name')
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();

@@ -29,16 +29,18 @@ class Dashboard extends Component
         $user = Auth::user();
         $team = $user->currentTeam;
 
-        $locations = Location::where('team_id', $team->id)->get();
+        $locations = Location::where('team_id', $team->id)
+            ->with('site:id,name')
+            ->get();
 
         $totalLocations     = $locations->count();
-        $uniqueGroups       = $locations->pluck('gruppe')->filter()->unique()->count();
+        $uniqueSites        = $locations->pluck('site_id')->filter()->unique()->count();
         $totalCapacity      = (int) $locations->sum('pax_max');
         $multiUseLocations  = $locations->where('mehrfachbelegung', true)->count();
 
-        // Gruppen-Breakdown für Sidebar
-        $groupBreakdown = $locations
-            ->groupBy(fn ($l) => $l->gruppe ?: '– Ohne Gruppe –')
+        // Site-Breakdown für Sidebar
+        $siteBreakdown = $locations
+            ->groupBy(fn ($l) => $l->site?->name ?: '– Ohne Site –')
             ->map(fn ($group, $name) => [
                 'name'     => $name,
                 'count'    => $group->count(),
@@ -56,7 +58,7 @@ class Dashboard extends Component
                 'name'     => $l->name,
                 'kuerzel'  => $l->kuerzel,
                 'pax_max'  => $l->pax_max,
-                'gruppe'   => $l->gruppe,
+                'site'     => $l->site?->name,
             ])
             ->values();
 
@@ -64,10 +66,10 @@ class Dashboard extends Component
             'currentDate'        => now()->format('d.m.Y'),
             'currentDay'         => now()->format('l'),
             'totalLocations'     => $totalLocations,
-            'uniqueGroups'       => $uniqueGroups,
+            'uniqueSites'        => $uniqueSites,
             'totalCapacity'      => $totalCapacity,
             'multiUseLocations'  => $multiUseLocations,
-            'groupBreakdown'     => $groupBreakdown,
+            'siteBreakdown'      => $siteBreakdown,
             'topLocations'       => $topLocations,
         ])->layout('platform::layouts.app');
     }

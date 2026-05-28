@@ -7,6 +7,7 @@ use Platform\Core\Contracts\ToolContext;
 use Platform\Core\Contracts\ToolResult;
 use Platform\Core\Contracts\ToolMetadataContract;
 use Platform\Locations\Models\Location;
+use Platform\Locations\Models\LocationSite;
 use Platform\Locations\Services\GeocodingService;
 use Platform\Locations\Tools\Concerns\NormalizesLocationFields;
 use Platform\Locations\Tools\Concerns\RecommendsMissingLocationFields;
@@ -22,7 +23,7 @@ class UpdateLocationTool implements ToolContract, ToolMetadataContract
     /** @var array<int,string> Identifikations-Felder + akzeptierte Update-Felder (fuer ignored_fields-Diff) */
     protected const KNOWN_FIELDS = [
         'location_id', 'uuid',
-        'name', 'kuerzel', 'gruppe', 'pax_min', 'pax_max',
+        'name', 'kuerzel', 'site_id', 'site_uuid', 'pax_min', 'pax_max',
         'mehrfachbelegung', 'adresse', 'latitude', 'longitude', 'sort_order',
         'groesse_qm', 'hallennummer', 'barrierefrei',
         'besonderheit', 'beschreibung', 'anlaesse',
@@ -36,7 +37,7 @@ class UpdateLocationTool implements ToolContract, ToolMetadataContract
 
     public function getDescription(): string
     {
-        return 'PATCH /locations/{id} - Aktualisiert eine Location. REST-Parameter: location_id (integer) ODER uuid (string) - mindestens einer. Übrige Felder optional: name, kuerzel, gruppe, pax_min, pax_max (max inkl. Personal), mehrfachbelegung, adresse (Aenderung triggert per Default einen Nominatim-Geocode -> Lat/Lng werden neu gesetzt; mit geocode=false oder explizitem latitude/longitude wird der Lookup uebersprungen), latitude, longitude, sort_order, groesse_qm, hallennummer, barrierefrei, besonderheit (kurz), beschreibung (langer Marketing-/Historie-Fließtext), anlaesse (Array), geocode (boolean, Default true). Nur übergebene Werte werden geändert.';
+        return 'PATCH /locations/{id} - Aktualisiert eine Location. REST-Parameter: location_id (integer) ODER uuid (string) - mindestens einer. Übrige Felder optional: name, kuerzel, site_id ODER site_uuid (LocationSite-Zuordnung; null zum entfernen), pax_min, pax_max (max inkl. Personal), mehrfachbelegung, adresse (Aenderung triggert per Default einen Nominatim-Geocode -> Lat/Lng werden neu gesetzt; mit geocode=false oder explizitem latitude/longitude wird der Lookup uebersprungen), latitude, longitude, sort_order, groesse_qm, hallennummer, barrierefrei, besonderheit (kurz), beschreibung (langer Marketing-/Historie-Fließtext), anlaesse (Array), geocode (boolean, Default true). Nur übergebene Werte werden geändert.';
     }
 
     public function getSchema(): array
@@ -54,7 +55,8 @@ class UpdateLocationTool implements ToolContract, ToolMetadataContract
                 ],
                 'name' => ['type' => 'string', 'description' => 'Optional: Neuer Name.'],
                 'kuerzel' => ['type' => 'string', 'description' => 'Optional: Neues Kürzel (max. 20).'],
-                'gruppe' => ['type' => 'string', 'description' => 'Optional: Neue Gruppe.'],
+                'site_id' => ['type' => 'integer', 'description' => 'Optional: Neue Site-ID (LocationSite). Null zum Entfernen.'],
+                'site_uuid' => ['type' => 'string', 'description' => 'Optional: Neue Site-UUID (LocationSite). Wird zu site_id aufgeloest.'],
                 'pax_min' => ['type' => 'integer', 'description' => 'Optional: Neue Mindestbelegung.'],
                 'pax_max' => ['type' => 'integer', 'description' => 'Optional: Neue Kapazität (inkl. Personal).'],
                 'mehrfachbelegung' => ['type' => 'boolean', 'description' => 'Optional: Mehrfachbelegung erlaubt ja/nein.'],
@@ -103,9 +105,39 @@ class UpdateLocationTool implements ToolContract, ToolMetadataContract
             }
 
             $update = [];
-            foreach (['name', 'gruppe', 'adresse', 'besonderheit', 'beschreibung'] as $field) {
+            foreach (['name', 'adresse', 'besonderheit', 'beschreibung'] as $field) {
                 if (array_key_exists($field, $arguments)) {
                     $update[$field] = $arguments[$field];
+                }
+            }
+
+            // Site-Zuordnung: site_id direkt oder site_uuid -> Lookup. Null
+            // explizit erlaubt zum Entfernen der Zuordnung.
+            if (array_key_exists('site_id', $arguments)) {
+                $sid = $arguments['site_id'];
+                if ($sid === null || $sid === '') {
+                    $update['site_id'] = null;
+                } else {
+                    $exists = LocationSite::where('id', (int) $sid)
+                        ->where('team_id', $location->team_id)
+                        ->exists();
+                    if (!$exists) {
+                        return ToolResult::error('VALIDATION_ERROR', "site_id={$sid} gehoert nicht zum Team dieser Location.");
+                    }
+                    $update['site_id'] = (int) $sid;
+                }
+            } elseif (array_key_exists('site_uuid', $arguments)) {
+                $suuid = $arguments['site_uuid'];
+                if ($suuid === null || $suuid === '') {
+                    $update['site_id'] = null;
+                } else {
+                    $site = LocationSite::where('uuid', (string) $suuid)
+                        ->where('team_id', $location->team_id)
+                        ->first();
+                    if (!$site) {
+                        return ToolResult::error('VALIDATION_ERROR', "site_uuid='{$suuid}' nicht gefunden im Team dieser Location.");
+                    }
+                    $update['site_id'] = $site->id;
                 }
             }
             if (array_key_exists('kuerzel', $arguments)) {
@@ -211,12 +243,16 @@ class UpdateLocationTool implements ToolContract, ToolMetadataContract
             $known = array_merge(self::KNOWN_FIELDS, array_keys($this->aliasMapForDiff()));
             $ignored = array_values(array_diff(array_keys($arguments), $known));
 
+            $location->loadMissing('site:id,uuid,name');
+
             return ToolResult::success([
                 'id'               => $location->id,
                 'uuid'             => $location->uuid,
                 'name'             => $location->name,
                 'kuerzel'          => $location->kuerzel,
-                'gruppe'           => $location->gruppe,
+                'site_id'          => $location->site_id,
+                'site_uuid'        => $location->site?->uuid,
+                'site_name'        => $location->site?->name,
                 'pax_min'          => $location->pax_min,
                 'pax_max'          => $location->pax_max,
                 'mehrfachbelegung' => (bool) $location->mehrfachbelegung,
