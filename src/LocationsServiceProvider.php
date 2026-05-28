@@ -64,6 +64,13 @@ class LocationsServiceProvider extends ServiceProvider
 
         // Tools registrieren (loose gekoppelt - für AI/Chat)
         $this->registerTools();
+
+        // Artisan-Commands nur in CLI registrieren
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                \Platform\Locations\Console\Commands\MigrateLegacyAssetsCommand::class,
+            ]);
+        }
     }
 
     /**
