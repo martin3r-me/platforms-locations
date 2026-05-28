@@ -754,6 +754,30 @@ class Show extends Component
         }
     }
 
+    /**
+     * Markiert ein hochgeladenes Bild als "Highlight" oder hebt die Markierung
+     * wieder auf. Highlights werden im Booklet bevorzugt verwendet — sie
+     * landen garantiert in den ersten Slots (Cover-Hero + Spread).
+     */
+    public function toggleFileHighlight(int $referenceId): void
+    {
+        $ref = ContextFileReference::where('id', $referenceId)
+            ->where('reference_type', Location::class)
+            ->where('reference_id', $this->location->id)
+            ->first();
+
+        if (!$ref) {
+            return;
+        }
+
+        $meta = is_array($ref->meta) ? $ref->meta : [];
+        $meta['highlight'] = !($meta['highlight'] ?? false);
+        $ref->meta = $meta;
+        $ref->save();
+
+        $this->loadFileReferences();
+    }
+
     public function deleteFile(int $referenceId): void
     {
         try {

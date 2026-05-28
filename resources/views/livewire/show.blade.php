@@ -570,7 +570,9 @@
                             @if($hasContextFiles)
                                 <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
                                     @foreach($contextFiles as $f)
-                                        <div class="border border-[var(--ui-border)] rounded-md overflow-hidden bg-[var(--ui-muted-5)]">
+                                        @php $isHighlight = (bool) ($f['meta']['highlight'] ?? false); @endphp
+                                        <div class="relative border-2 rounded-md overflow-hidden bg-[var(--ui-muted-5)] transition-colors
+                                                    {{ $isHighlight ? 'border-amber-400 shadow-md shadow-amber-200/40' : 'border-[var(--ui-border)]' }}">
                                             @if(($f['is_image'] ?? false) && ($f['thumbnail'] ?? $f['url'] ?? null))
                                                 <a href="{{ $f['url'] }}" target="_blank" rel="noopener" class="block bg-white">
                                                     <img src="{{ $f['thumbnail'] ?? $f['url'] }}" alt="{{ $f['title'] ?? '' }}"
@@ -581,6 +583,24 @@
                                                     @svg('heroicon-o-document', 'w-8 h-8')
                                                 </div>
                                             @endif
+
+                                            {{-- Highlight-Toggle: nur fuer Bilder sinnvoll --}}
+                                            @if($f['is_image'] ?? false)
+                                                <button type="button"
+                                                        wire:click="toggleFileHighlight({{ $f['id'] }})"
+                                                        title="{{ $isHighlight ? 'Highlight entfernen' : 'Als Highlight markieren (kommt garantiert ins Booklet)' }}"
+                                                        class="absolute top-1 right-1 rounded-full p-1 backdrop-blur-sm transition-colors
+                                                               {{ $isHighlight
+                                                                   ? 'bg-amber-400 text-white shadow-sm hover:bg-amber-500'
+                                                                   : 'bg-white/80 text-[var(--ui-muted)] hover:bg-white hover:text-amber-500' }}">
+                                                    @if($isHighlight)
+                                                        @svg('heroicon-s-star', 'w-3.5 h-3.5')
+                                                    @else
+                                                        @svg('heroicon-o-star', 'w-3.5 h-3.5')
+                                                    @endif
+                                                </button>
+                                            @endif
+
                                             <div class="p-1.5 flex items-center gap-1 text-[0.6rem]">
                                                 @if($f['url'] ?? null)
                                                     <a href="{{ $f['url'] }}" target="_blank" rel="noopener"

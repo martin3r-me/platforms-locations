@@ -133,18 +133,31 @@ class BookletPdfService
         $urls = [];
         $categories = ['photos_empty', 'photos_with_seating', 'buffet', 'seating_plans'];
 
-        // 1) ContextFile-References (neue Quelle, gepflegt via Manage-UI)
+        // 1) ContextFile-References (neue Quelle, gepflegt via Manage-UI).
+        //    Highlights (meta.highlight === true) kommen IMMER zuerst und
+        //    landen damit garantiert in Cover-Hero + Photo-Spread. Alles
+        //    weitere wird nach Kategorie aufgefuellt — bisheriges Verhalten.
         try {
+            $highlights = [];
             $byCategory = [];
             foreach ($location->getOrderedFileReferences() as $ref) {
                 if (!($ref->contextFile?->isImage() ?? false)) {
                     continue;
                 }
-                $cat = $ref->meta['category'] ?? 'uncategorized';
                 $url = $ref->url ?? null;
-                if (is_string($url) && $url !== '') {
-                    $byCategory[$cat][] = $url;
+                if (!is_string($url) || $url === '') {
+                    continue;
                 }
+                if ((bool) ($ref->meta['highlight'] ?? false)) {
+                    $highlights[] = $url;
+                    continue;
+                }
+                $cat = $ref->meta['category'] ?? 'uncategorized';
+                $byCategory[$cat][] = $url;
+            }
+
+            foreach ($highlights as $url) {
+                $urls[] = $url;
             }
             foreach ($categories as $cat) {
                 foreach ($byCategory[$cat] ?? [] as $url) {
