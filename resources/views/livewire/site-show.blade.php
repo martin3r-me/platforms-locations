@@ -265,14 +265,30 @@
                         </div>
                     @endif
 
-                    <div class="border-2 border-dashed border-[var(--ui-border)] rounded-md px-3 py-4 text-center bg-[var(--ui-muted-5)]/30">
-                        <label class="cursor-pointer text-[0.65rem] text-[var(--ui-muted)] hover:text-[var(--ui-secondary)] inline-flex items-center gap-1.5">
+                    <div x-data="{ over: false }"
+                         @dragover.prevent.stop="over = true"
+                         @dragleave.prevent.stop="over = false"
+                         @drop.prevent.stop="
+                             over = false;
+                             if (!$event.dataTransfer.files.length) return;
+                             const dt = new DataTransfer();
+                             for (const f of $event.dataTransfer.files) dt.items.add(f);
+                             $refs.input.files = dt.files;
+                             $refs.input.dispatchEvent(new Event('change', { bubbles: true }));
+                         "
+                         @click="$refs.input.click()"
+                         :class="over ? 'border-[var(--ui-primary)] bg-[var(--ui-primary)]/5' : 'border-[var(--ui-border)] bg-[var(--ui-muted-5)]/30 hover:bg-[var(--ui-muted-5)]/50'"
+                         class="border-2 border-dashed rounded-md px-3 py-4 text-center cursor-pointer transition-colors">
+                        <input type="file"
+                               multiple
+                               wire:model="newSiteImages"
+                               x-ref="input"
+                               accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
+                               class="sr-only">
+                        <div class="flex items-center gap-2 justify-center text-[0.65rem] text-[var(--ui-muted)]">
                             @svg('heroicon-o-cloud-arrow-up', 'w-4 h-4')
                             <span>Bilder hierher ziehen oder klicken (Mehrfachauswahl)</span>
-                            <input type="file" wire:model="newSiteImages" multiple
-                                   accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
-                                   class="hidden">
-                        </label>
+                        </div>
                         <div wire:loading wire:target="newSiteImages,uploadSiteImages" class="mt-1 flex items-center justify-center gap-1 text-[0.62rem] text-[var(--ui-muted)]">
                             @svg('heroicon-o-arrow-path', 'w-3 h-3 animate-spin')
                             Upload laeuft …
