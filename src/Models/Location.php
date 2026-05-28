@@ -568,12 +568,12 @@ class Location extends Model implements HasFileContext
      * @var array<string, bool>
      */
     public const BOOKLET_OPTION_DEFAULTS = [
-        // Eckdaten-Felder
+        // Eckdaten-Felder (Gruppe ist obsolet — die Site uebernimmt diese Rolle)
         'show_hallennummer'   => true,
         'show_mehrfachbelegung' => true,
         'show_barrierefrei'   => true,
-        'show_gruppe'         => true,
         // Inhalts-Sektionen
+        'show_site'           => true,
         'show_beschreibung'   => true,
         'show_photos'         => true,
         'show_grundriss'      => true,

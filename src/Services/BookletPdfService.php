@@ -35,22 +35,38 @@ class BookletPdfService
         $assets  = $this->collectAssets($location);
         $options = $location->bookletOptions();
 
+        // Site-Daten (optional, nur wenn Location einer Site zugeordnet ist
+        // und show_site aktiv). Beschreibung + bis zu 3 Bilder kommen als
+        // Einleitungs-Seite ins Booklet.
+        $site = $options['show_site'] ? $location->site : null;
+        $siteImages = [];
+        if ($site) {
+            $siteImages = collect($site->siteImageReferences())
+                ->pluck('url')
+                ->filter()
+                ->take(3)
+                ->values()
+                ->all();
+        }
+
         return view('locations::booklet.magazine', [
-            'location'  => $location,
-            'options'   => $options,
-            'hero'      => $options['show_photos']      ? $assets['hero']      : null,
-            'spread'    => $options['show_photos']      ? $assets['spread']    : [],
-            'floorPlan' => $options['show_grundriss']   ? $assets['floorPlan'] : null,
-            'seatings'  => $options['show_bestuhlungen']
+            'location'   => $location,
+            'options'    => $options,
+            'site'       => $site,
+            'siteImages' => $siteImages,
+            'hero'       => $options['show_photos']      ? $assets['hero']      : null,
+            'spread'     => $options['show_photos']      ? $assets['spread']    : [],
+            'floorPlan'  => $options['show_grundriss']   ? $assets['floorPlan'] : null,
+            'seatings'   => $options['show_bestuhlungen']
                 ? $location->seatingOptions()->orderBy('sort_order')->orderBy('label')->get()
                 : collect(),
-            'pricings'  => $options['show_mietpreise']
+            'pricings'   => $options['show_mietpreise']
                 ? $location->pricings()->orderBy('sort_order')->orderBy('day_type_label')->get()
                 : collect(),
-            'addons'    => $options['show_addons']
+            'addons'     => $options['show_addons']
                 ? $location->activeAddons()
                 : collect(),
-            'anlaesse'  => $options['show_anlaesse'] && is_array($location->anlaesse)
+            'anlaesse'   => $options['show_anlaesse'] && is_array($location->anlaesse)
                 ? array_values(array_filter($location->anlaesse))
                 : [],
         ])->render();

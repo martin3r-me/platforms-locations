@@ -1,6 +1,8 @@
 @php
     /** @var \Platform\Locations\Models\Location $location */
     /** @var array<string,bool> $options */
+    /** @var ?\Platform\Locations\Models\LocationSite $site */
+    /** @var array<int,string> $siteImages */
     /** @var ?string $hero */
     /** @var array<int,string> $spread */
     /** @var ?string $floorPlan */
@@ -11,6 +13,7 @@
 
     $opt = fn (string $key) => (bool) ($options[$key] ?? \Platform\Locations\Models\Location::BOOKLET_OPTION_DEFAULTS[$key] ?? false);
 
+    $hasSite        = $site !== null && (!empty($site->description) || !empty($siteImages));
     $hasSpread      = !empty($spread);
     $hasSeating     = $seatings->isNotEmpty();
     $hasPricings    = $pricings->isNotEmpty();
@@ -27,7 +30,6 @@
         ['label' => 'Halle',            'option' => 'show_hallennummer',       'value' => $location->hallennummer],
         ['label' => 'Mehrfachbelegung', 'option' => 'show_mehrfachbelegung',   'value' => $location->mehrfachbelegung ? 'Ja' : 'Nein'],
         ['label' => 'Barrierefrei',     'option' => 'show_barrierefrei',       'value' => $location->barrierefrei ? 'Ja' : 'Nein'],
-        ['label' => 'Gruppe',           'option' => 'show_gruppe',             'value' => $location->gruppe],
     ])
         ->filter(fn ($e) => !empty($e['value']))
         ->filter(fn ($e) => ($e['always'] ?? false) || $opt($e['option']))
@@ -398,6 +400,50 @@
             line-height: 1.7;
         }
 
+        /* ============== SITE-EINLEITUNG ============== */
+        .site-intro {
+            background: var(--paper-warm);
+        }
+        .site-intro__eyebrow {
+            font-size: 10pt;
+            letter-spacing: 0.4em;
+            text-transform: uppercase;
+            color: var(--accent);
+            font-weight: 500;
+            margin-bottom: 4mm;
+        }
+        .site-intro__name {
+            font-family: 'Fraunces', Georgia, serif;
+            font-size: 40pt;
+            line-height: 0.95;
+            font-weight: 400;
+            letter-spacing: -0.02em;
+            margin: 0 0 8mm 0;
+        }
+        .site-intro__text {
+            font-size: 11pt;
+            line-height: 1.7;
+            color: #2a2722;
+            max-width: 150mm;
+            white-space: pre-wrap;
+            margin: 0 0 10mm 0;
+        }
+        .site-intro__images {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 3mm;
+            margin-top: 8mm;
+        }
+        .site-intro__images--n1 { grid-template-columns: 1fr; }
+        .site-intro__images--n2 { grid-template-columns: 1fr 1fr; }
+        .site-intro__img {
+            background-size: cover;
+            background-position: center;
+            background-color: #d6cdb9;
+            aspect-ratio: 4 / 3;
+            border-radius: 1mm;
+        }
+
         /* ============== GRUNDRISS-SEITE ============== */
         .floorplan {
             margin-top: 4mm;
@@ -465,13 +511,45 @@
             <h1 class="cover__name">{{ $location->name }}</h1>
             <div class="cover__row">
                 <div class="cover__row-left">
-                    @if($opt('show_gruppe') && $location->gruppe){{ $location->gruppe }}@endif
+                    @if($site){{ $site->name }}@endif
                     @if($location->pax_max) · {{ number_format($location->pax_max, 0, ',', '.') }} PAX @endif
                 </div>
                 <div class="cover__kuerzel">{{ $location->kuerzel }}</div>
             </div>
         </div>
     </section>
+
+    {{-- ============ SITE-EINLEITUNG (optional, vor Eckdaten) ============ --}}
+    @if($hasSite)
+    @php $sectionNr++; @endphp
+    <section class="page content site-intro">
+        <div class="content__header">
+            <h2 class="content__title">Lage & Hintergrund</h2>
+            <div class="content__caption">No. {{ sprintf('%02d', $sectionNr) }}</div>
+        </div>
+
+        <div class="site-intro__eyebrow">Areal-Einleitung</div>
+        <h3 class="site-intro__name">{{ $site->name }}</h3>
+
+        @if(!empty($site->description))
+            <p class="site-intro__text">{{ $site->description }}</p>
+        @endif
+
+        @if(!empty($siteImages))
+            @php $n = min(count($siteImages), 3); @endphp
+            <div class="site-intro__images site-intro__images--n{{ $n }}">
+                @foreach(array_slice($siteImages, 0, $n) as $url)
+                    <div class="site-intro__img" style="background-image:url('{{ $url }}')"></div>
+                @endforeach
+            </div>
+        @endif
+
+        <div class="footer">
+            <span>{{ $location->name }}</span>
+            <span class="footer__brand">{{ $location->kuerzel }}</span>
+        </div>
+    </section>
+    @endif
 
     {{-- ============ ECKDATEN + BESCHREIBUNG ============ --}}
     @if($eckdaten->isNotEmpty() || $hasDescription)

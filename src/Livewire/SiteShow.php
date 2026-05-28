@@ -6,13 +6,29 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
+use Livewire\WithFileUploads;
+use Platform\Core\Models\ContextFileReference;
+use Platform\Core\Services\ContextFileService;
 use Platform\Locations\Models\LocationSite;
 use Platform\Locations\Services\GeocodingService;
 
 class SiteShow extends Component
 {
+    use WithFileUploads;
+
     public LocationSite $site;
     public string $currentUuid = '';
+
+    /** Upload-Buffer fuer neue Site-Bilder. */
+    public $newSiteImages = [];
+    public bool $uploadingSiteImages = false;
+
+    /**
+     * Geladene Site-Bilder (ContextFile-References).
+     *
+     * @var array<int, array{id:int, uuid:string, title:string, url:?string, thumbnail:?string}>
+     */
+    public array $siteImages = [];
 
     #[Validate('required|string|max:255')]
     public string $name = '';
@@ -111,7 +127,84 @@ class SiteShow extends Component
         $this->addressSuggestions = [];
 
         $this->loadActivityItems();
+        $this->loadSiteImages();
         $this->resetErrorBag();
+    }
+
+    // ================= Site-Bilder (ContextFile, Booklet-Einleitung) =================
+
+    protected function loadSiteImages(): void
+    {
+        $this->siteImages = $this->site->siteImageReferences();
+    }
+
+    public function updatedNewSiteImages(): void
+    {
+        $this->uploadSiteImages();
+    }
+
+    public function uploadSiteImages(): void
+    {
+        $files = $this->newSiteImages;
+        if (!is_array($files) || empty($files)) {
+            return;
+        }
+        $this->uploadingSiteImages = true;
+
+        try {
+            $service = app(ContextFileService::class);
+            $team = Auth::user()->currentTeam;
+
+            foreach ($files as $file) {
+                if (!$file) continue;
+                try {
+                    $contextFile = $service->uploadForContext(
+                        $file,
+                        $this->site->getFileContextType(),
+                        $this->site->getFileContextId(),
+                        ['team_id' => $team->id, 'user_id' => Auth::id()],
+                    );
+                    $this->site->addFileReference($contextFile['id'], [
+                        'category' => 'site_photos',
+                        'title'    => $file->getClientOriginalName(),
+                    ]);
+                } catch (\Throwable $e) {
+                    \Log::error('[LocationSite] Bild-Upload fehlgeschlagen', [
+                        'error'     => $e->getMessage(),
+                        'site_uuid' => $this->site->uuid,
+                    ]);
+                    $this->addError('newSiteImages', 'Upload fehlgeschlagen: ' . $e->getMessage());
+                }
+            }
+        } finally {
+            $this->newSiteImages = [];
+            $this->uploadingSiteImages = false;
+            $this->loadSiteImages();
+        }
+    }
+
+    public function deleteSiteImage(int $referenceId): void
+    {
+        try {
+            $ref = ContextFileReference::where('id', $referenceId)
+                ->where('reference_type', LocationSite::class)
+                ->where('reference_id', $this->site->id)
+                ->first();
+
+            if ($ref) {
+                if ($ref->context_file_id) {
+                    app(ContextFileService::class)->delete($ref->context_file_id);
+                }
+                $this->site->removeFileReference($referenceId);
+            }
+        } catch (\Throwable $e) {
+            \Log::error('[LocationSite] Bild-Loeschen fehlgeschlagen', [
+                'error'        => $e->getMessage(),
+                'reference_id' => $referenceId,
+            ]);
+        }
+
+        $this->loadSiteImages();
     }
 
     public function updatedStreet(): void

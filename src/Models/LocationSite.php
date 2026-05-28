@@ -7,14 +7,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Platform\ActivityLog\Traits\LogsActivity;
+use Platform\Core\Contracts\HasFileContext;
+use Platform\Core\Traits\HasContextFileReferences;
 use Symfony\Component\Uid\UuidV7;
 
 /**
- * @ai.description Ein Standort/Site als optionaler Eltern-Container fuer Locations. Kann Adresse, GPS, Kontaktdaten und Beschreibung enthalten.
+ * @ai.description Ein Standort/Site als optionaler Eltern-Container fuer Locations. Kann Adresse, GPS, Kontaktdaten, Beschreibung und Site-Bilder enthalten. Im Booklet erscheint die Site als Einleitungs-Seite vor den Eckdaten der jeweiligen Location.
  */
-class LocationSite extends Model
+class LocationSite extends Model implements HasFileContext
 {
-    use SoftDeletes, LogsActivity;
+    use SoftDeletes, LogsActivity, HasContextFileReferences;
 
     protected $table = 'locations_sites';
 
@@ -93,6 +95,43 @@ class LocationSite extends Model
     public function locations(): HasMany
     {
         return $this->hasMany(Location::class, 'site_id')->orderBy('sort_order')->orderBy('name');
+    }
+
+    // ================= HasFileContext =================
+
+    public function getFileContextType(): string
+    {
+        return self::class;
+    }
+
+    public function getFileContextId(): int
+    {
+        return $this->id;
+    }
+
+    /**
+     * Liefert alle Site-Bilder (Image-References, in Sort-Order). Wird im
+     * Booklet als Einleitung verwendet.
+     *
+     * @return array<int, array{id:int, uuid:string, title:string, url:?string, thumbnail:?string}>
+     */
+    public function siteImageReferences(): array
+    {
+        try {
+            return collect($this->getOrderedFileReferences())
+                ->filter(fn ($ref) => $ref->contextFile?->isImage() ?? false)
+                ->map(fn ($ref) => [
+                    'id'        => $ref->id,
+                    'uuid'      => $ref->uuid,
+                    'title'     => $ref->title ?? $ref->contextFile?->original_name ?? '',
+                    'url'       => $ref->url,
+                    'thumbnail' => $ref->thumbnail_url,
+                ])
+                ->values()
+                ->all();
+        } catch (\Throwable $e) {
+            return [];
+        }
     }
 
     // ================= Scopes =================

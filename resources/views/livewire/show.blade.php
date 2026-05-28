@@ -832,6 +832,7 @@
                     {{-- ===== Sektions-Auswahl ===== --}}
                     @php
                         $bookletSections = [
+                            ['key' => 'show_site',             'label' => 'Site-Einleitung (Areal)',  'group' => 'inhalt'],
                             ['key' => 'show_beschreibung',     'label' => 'Beschreibungs-Text',       'group' => 'inhalt'],
                             ['key' => 'show_photos',           'label' => 'Fotos (Cover + Spread)',   'group' => 'inhalt'],
                             ['key' => 'show_grundriss',        'label' => 'Grundriss-Seite',          'group' => 'inhalt'],
@@ -841,7 +842,6 @@
                             ['key' => 'show_hallennummer',     'label' => 'Hallennummer',             'group' => 'eckdaten'],
                             ['key' => 'show_mehrfachbelegung', 'label' => 'Mehrfachbelegung',         'group' => 'eckdaten'],
                             ['key' => 'show_barrierefrei',     'label' => 'Barrierefrei',             'group' => 'eckdaten'],
-                            ['key' => 'show_gruppe',           'label' => 'Gruppe',                   'group' => 'eckdaten'],
                             ['key' => 'show_mietpreise',       'label' => 'Mietpreise',               'group' => 'preise'],
                             ['key' => 'show_addons',           'label' => 'Add-ons',                  'group' => 'preise'],
                         ];

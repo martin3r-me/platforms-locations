@@ -240,6 +240,51 @@
                 </div>
             </x-ui-panel>
 
+            {{-- ===== Panel: Site-Bilder fuer Booklet ===== --}}
+            <x-ui-panel title="Site-Bilder" subtitle="Erscheinen im Booklet als Einleitung zu jeder zugeordneten Location">
+                <div class="p-1 space-y-3">
+                    @if(!empty($siteImages))
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                            @foreach($siteImages as $img)
+                                <div class="relative border border-[var(--ui-border)] rounded-md overflow-hidden bg-[var(--ui-muted-5)]">
+                                    <a href="{{ $img['url'] }}" target="_blank" rel="noopener" class="block bg-white">
+                                        <img src="{{ $img['thumbnail'] ?? $img['url'] }}" alt="{{ $img['title'] }}"
+                                             class="w-full h-28 object-cover hover:opacity-90 transition-opacity">
+                                    </a>
+                                    <div class="p-1.5 flex items-center gap-1 text-[0.6rem]">
+                                        <span class="truncate flex-1 text-[var(--ui-muted)]" title="{{ $img['title'] }}">{{ $img['title'] }}</span>
+                                        <button type="button"
+                                                wire:click="deleteSiteImage({{ $img['id'] }})"
+                                                wire:confirm="Bild wirklich entfernen?"
+                                                class="text-red-600 hover:bg-red-50 rounded p-1">
+                                            @svg('heroicon-o-trash', 'w-3 h-3')
+                                        </button>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+
+                    <div class="border-2 border-dashed border-[var(--ui-border)] rounded-md px-3 py-4 text-center bg-[var(--ui-muted-5)]/30">
+                        <label class="cursor-pointer text-[0.65rem] text-[var(--ui-muted)] hover:text-[var(--ui-secondary)] inline-flex items-center gap-1.5">
+                            @svg('heroicon-o-cloud-arrow-up', 'w-4 h-4')
+                            <span>Bilder hierher ziehen oder klicken (Mehrfachauswahl)</span>
+                            <input type="file" wire:model="newSiteImages" multiple
+                                   accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
+                                   class="hidden">
+                        </label>
+                        <div wire:loading wire:target="newSiteImages,uploadSiteImages" class="mt-1 flex items-center justify-center gap-1 text-[0.62rem] text-[var(--ui-muted)]">
+                            @svg('heroicon-o-arrow-path', 'w-3 h-3 animate-spin')
+                            Upload laeuft …
+                        </div>
+                        @error('newSiteImages')
+                            <p class="mt-1 text-[0.62rem] text-red-600">{{ $message }}</p>
+                        @enderror
+                        <p class="mt-1 text-[0.62rem] text-[var(--ui-muted)]">PNG, JPG oder WEBP, max. 15 MB pro Bild.</p>
+                    </div>
+                </div>
+            </x-ui-panel>
+
             {{-- ===== Panel: Zugehörige Locations ===== --}}
             <x-ui-panel title="Zugehörige Locations" subtitle="Locations an diesem Standort">
                 <div class="p-1">
