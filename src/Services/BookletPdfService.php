@@ -27,6 +27,13 @@ class BookletPdfService
     public const MAX_SPREAD_PHOTOS = 8;
 
     /**
+     * Wieviele Site-Bilder maximal auf der Site-Einleitungs-Bildseite landen.
+     * Layouts gibt es bis n6 (siehe magazine.blade.php) — darueber hinaus
+     * werden weitere Bilder ignoriert.
+     */
+    public const MAX_SITE_IMAGES = 6;
+
+    /**
      * Rendert das Magazin-HTML einer Location (ohne Browsershot-Step,
      * fuer Public-HTML-View nutzbar).
      */
@@ -44,7 +51,7 @@ class BookletPdfService
             $siteImages = collect($site->siteImageReferences())
                 ->pluck('url')
                 ->filter()
-                ->take(3)
+                ->take(self::MAX_SITE_IMAGES)
                 ->values()
                 ->all();
         }

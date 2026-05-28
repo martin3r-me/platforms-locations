@@ -443,24 +443,41 @@
             height: 297mm;
             background: var(--paper-warm);
         }
-        .site-images--n1 {
-            grid-template-columns: 1fr;
-            grid-template-rows: 1fr;
-        }
-        .site-images--n2 {
-            grid-template-columns: 1fr 1fr;
-            grid-template-rows: 1fr;
-        }
-        .site-images--n3 {
-            grid-template-columns: 1fr 1fr;
-            grid-template-rows: 1fr 1fr;
-        }
-        .site-images--n3 .si1 { grid-column: 1 / -1; }
         .site-images__img {
             background-size: cover;
             background-position: center;
             background-color: #d6cdb9;
             border-radius: 1mm;
+        }
+
+        /* 1: full-bleed */
+        .site-images--n1 { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+
+        /* 2: nebeneinander */
+        .site-images--n2 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr; }
+
+        /* 3: 1 gross oben, 2 nebeneinander unten */
+        .site-images--n3 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+        .site-images--n3 .si1 { grid-column: 1 / -1; }
+
+        /* 4: 2x2-Grid, gleichmaessig */
+        .site-images--n4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+
+        /* 5: 1 gross oben, 2x2 darunter — magazinhafter Mix */
+        .site-images--n5 {
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1.4fr 1fr 1fr;
+        }
+        .site-images--n5 .si1 { grid-column: 1 / -1; grid-row: 1; }
+        .site-images--n5 .si2 { grid-column: 1; grid-row: 2; }
+        .site-images--n5 .si3 { grid-column: 2; grid-row: 2; }
+        .site-images--n5 .si4 { grid-column: 1; grid-row: 3; }
+        .site-images--n5 .si5 { grid-column: 2; grid-row: 3; }
+
+        /* 6: 3x2-Grid */
+        .site-images--n6 {
+            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
         }
 
         /* ============== GRUNDRISS-SEITE ============== */
@@ -565,10 +582,10 @@
     </section>
     @endif
 
-    {{-- Seite 2: Site-Bilder, voll-bleed Magazin-Grid --}}
+    {{-- Seite 2: Site-Bilder, voll-bleed Magazin-Grid (bis 6 Bilder) --}}
     @if($hasSiteImages)
     @php
-        $n = min(count($siteImages), 3);
+        $n = min(count($siteImages), 6);
     @endphp
     <section class="page site-images site-images--n{{ $n }}">
         @foreach(array_slice($siteImages, 0, $n) as $i => $url)
