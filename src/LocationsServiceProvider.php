@@ -123,6 +123,13 @@ class LocationsServiceProvider extends ServiceProvider
             $registry->register(new \Platform\Locations\Tools\BulkCreateLocationPricingsTool());
             $registry->register(new \Platform\Locations\Tools\BulkCreateLocationSeatingOptionsTool());
             $registry->register(new \Platform\Locations\Tools\BulkCreateLocationAddonsTool());
+
+            // LocationSite-Tools (Eltern-Container fuer Locations, z.B. Areal Boehler)
+            $registry->register(new \Platform\Locations\Tools\ListLocationSitesTool());
+            $registry->register(new \Platform\Locations\Tools\GetLocationSiteTool());
+            $registry->register(new \Platform\Locations\Tools\CreateLocationSiteTool());
+            $registry->register(new \Platform\Locations\Tools\UpdateLocationSiteTool());
+            $registry->register(new \Platform\Locations\Tools\DeleteLocationSiteTool());
         } catch (\Throwable $e) {
             // Silent fail – Tool-Registry ggf. noch nicht verfügbar
         }
