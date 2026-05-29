@@ -474,10 +474,11 @@
         .site-images--n5 .si4 { grid-column: 1; grid-row: 3; }
         .site-images--n5 .si5 { grid-column: 2; grid-row: 3; }
 
-        /* 6: 3x2-Grid */
+        /* 6: 2x3-Grid (quadratische Slots; bei A4 sind das ca. 91×89mm — viel
+           besser fuer Landscape-Fotos als 3x2 mit 60×135mm Hochformat-Slots). */
         .site-images--n6 {
-            grid-template-columns: 1fr 1fr 1fr;
-            grid-template-rows: 1fr 1fr;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr 1fr;
         }
 
         /* ============== GRUNDRISS-SEITE ============== */
