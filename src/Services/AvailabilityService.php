@@ -47,13 +47,16 @@ class AvailabilityService
      * }
      * status = schlechtester Tages-Status im Zeitraum
      * available = kein Tag ist 'belegt' oder 'gesperrt'
+     *
+     * $ignoreEventId: Buchungen dieses Events ausklammern — fuer Checks aus
+     * dem Events-Modul heraus, damit ein Event nicht mit sich selbst kollidiert.
      */
-    public function check(Location $location, string $from, ?string $to = null): array
+    public function check(Location $location, string $from, ?string $to = null, ?int $ignoreEventId = null): array
     {
         [$from, $to] = $this->normalizeRange($from, $to);
 
         $blockings = $location->blockings()->overlapping($from, $to)->get();
-        $bookings  = $this->bookingsByLocation([$location->id], (int) $location->team_id, $from, $to)
+        $bookings  = $this->bookingsByLocation([$location->id], (int) $location->team_id, $from, $to, $ignoreEventId)
             ->get($location->id, collect());
 
         $days = [];
@@ -212,7 +215,7 @@ class AvailabilityService
      * @param array<int, int> $locationIds
      * @return Collection<int, Collection<int, object>>
      */
-    protected function bookingsByLocation(array $locationIds, int $teamId, string $from, string $to): Collection
+    protected function bookingsByLocation(array $locationIds, int $teamId, string $from, string $to, ?int $ignoreEventId = null): Collection
     {
         $bookingClass = '\\Platform\\Events\\Models\\Booking';
         if (!class_exists($bookingClass) || $locationIds === []) {
@@ -225,6 +228,7 @@ class AvailabilityService
                 ->whereIn('location_id', $locationIds)
                 ->whereBetween('datum', [$from, $to])
                 ->whereNotIn('optionsrang', self::IGNORED_RANKS)
+                ->when($ignoreEventId !== null, fn ($q) => $q->where('event_id', '!=', $ignoreEventId))
                 ->with('event:id,name,event_number')
                 ->get()
                 ->groupBy('location_id');
