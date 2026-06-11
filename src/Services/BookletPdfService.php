@@ -108,6 +108,10 @@ class BookletPdfService
      * Stammdaten-/Sub-Entity-Aenderung (via $touches bzw. explizitem touch())
      * erzeugt sofort einen frischen Render; der TTL begrenzt die maximale
      * Stale-Zeit fuer Aenderungen, die updated_at nicht anfassen.
+     *
+     * Gecacht wird base64-kodiert: rohe PDF-Binaries zerschiessen Cache-
+     * Stores mit utf8-Textspalten (database-Driver) bzw. Item-Limits
+     * (memcached). Cache-Fehler sind nie fatal — dann wird frisch gerendert.
      */
     public function cachedPdf(Location $location): string
     {
@@ -122,7 +126,30 @@ class BookletPdfService
             $location->updated_at?->getTimestamp() ?? 0,
         );
 
-        return Cache::remember($key, $ttl, fn () => $this->renderPdf($location));
+        try {
+            $cached = Cache::get($key);
+            if (is_string($cached) && $cached !== '') {
+                $pdf = base64_decode($cached, true);
+                if ($pdf !== false) {
+                    return $pdf;
+                }
+            }
+        } catch (\Throwable $e) {
+            // Cache-Store nicht verfuegbar/lesbar — frisch rendern.
+        }
+
+        $pdf = $this->renderPdf($location);
+
+        try {
+            Cache::put($key, base64_encode($pdf), $ttl);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('[Locations] Booklet-PDF-Cache nicht beschreibbar', [
+                'error' => $e->getMessage(),
+                'location_id' => $location->id,
+            ]);
+        }
+
+        return $pdf;
     }
 
     /**
