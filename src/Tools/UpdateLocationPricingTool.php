@@ -60,16 +60,17 @@ class UpdateLocationPricingTool implements ToolContract, ToolMetadataContract
                 return ToolResult::error('VALIDATION_ERROR', 'pricing_id oder uuid ist erforderlich.');
             }
 
+            // Query-Level-Scoping auf die Teams des Users (Defense-in-Depth) —
+            // fremde Datensaetze sind NOT_FOUND, kein Existenz-Leak.
+            $teamIds = $context->user->teams()->pluck('teams.id');
+
             /** @var LocationPricing|null $pricing */
-            $pricing = $query->with('location')->first();
+            $pricing = $query
+                ->whereHas('location', fn ($q) => $q->whereIn('team_id', $teamIds))
+                ->with('location')
+                ->first();
             if (!$pricing) {
                 return ToolResult::error('PRICING_NOT_FOUND', 'Pricing nicht gefunden.');
-            }
-
-            $teamId = $pricing->location?->team_id;
-            $hasAccess = $teamId && $context->user->teams()->where('teams.id', $teamId)->exists();
-            if (!$hasAccess) {
-                return ToolResult::error('ACCESS_DENIED', 'Kein Zugriff auf diese Location.');
             }
 
             $update = [];

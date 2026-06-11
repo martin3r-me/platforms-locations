@@ -47,15 +47,15 @@ class DeleteLocationPricingTool implements ToolContract, ToolMetadataContract
                 return ToolResult::error('VALIDATION_ERROR', 'pricing_id oder uuid noetig.');
             }
 
-            $pricing = $query->with('location')->first();
+            // Query-Level-Scoping auf die Teams des Users (Defense-in-Depth).
+            $teamIds = $context->user->teams()->pluck('teams.id');
+
+            $pricing = $query
+                ->whereHas('location', fn ($q) => $q->whereIn('team_id', $teamIds))
+                ->with('location')
+                ->first();
             if (!$pricing) {
                 return ToolResult::error('PRICING_NOT_FOUND', 'Nicht gefunden.');
-            }
-
-            $teamId = $pricing->location?->team_id;
-            $hasAccess = $teamId && $context->user->teams()->where('teams.id', $teamId)->exists();
-            if (!$hasAccess) {
-                return ToolResult::error('ACCESS_DENIED', 'Kein Zugriff.');
             }
 
             $pricing->delete();

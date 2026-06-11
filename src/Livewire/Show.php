@@ -546,7 +546,10 @@ class Show extends Component
         }
         $row = $this->seatingRows[$index];
         if ($row['id']) {
-            LocationSeatingOption::whereKey($row['id'])->delete();
+            // location_id-Scope: Row-IDs kommen aus Client-State und sind nicht vertrauenswuerdig.
+            LocationSeatingOption::whereKey($row['id'])
+                ->where('location_id', $this->location->id)
+                ->delete();
             $this->location->touch();
         }
         unset($this->seatingRows[$index]);
@@ -576,7 +579,9 @@ class Show extends Component
         }
         $row = $this->pricingRows[$index];
         if ($row['id']) {
-            LocationPricing::whereKey($row['id'])->delete();
+            LocationPricing::whereKey($row['id'])
+                ->where('location_id', $this->location->id)
+                ->delete();
             $this->location->touch();
         }
         unset($this->pricingRows[$index]);
@@ -607,7 +612,9 @@ class Show extends Component
         }
         $row = $this->addonRows[$index];
         if ($row['id']) {
-            LocationAddon::whereKey($row['id'])->delete();
+            LocationAddon::whereKey($row['id'])
+                ->where('location_id', $this->location->id)
+                ->delete();
             $this->location->touch();
         }
         unset($this->addonRows[$index]);
@@ -632,7 +639,10 @@ class Show extends Component
                 'sort_order'  => (int) ($row['sort_order'] ?? 0),
             ];
             if (!empty($row['id'])) {
-                LocationSeatingOption::whereKey($row['id'])->update($payload);
+                // location_id-Scope: Row-IDs kommen aus Client-State (IDOR-Schutz).
+                LocationSeatingOption::whereKey($row['id'])
+                    ->where('location_id', $location->id)
+                    ->update($payload);
             } else {
                 LocationSeatingOption::create($payload);
             }
@@ -662,7 +672,9 @@ class Show extends Component
                 'sort_order'     => (int) ($row['sort_order'] ?? 0),
             ];
             if (!empty($row['id'])) {
-                LocationPricing::whereKey($row['id'])->update($payload);
+                LocationPricing::whereKey($row['id'])
+                    ->where('location_id', $location->id)
+                    ->update($payload);
             } else {
                 LocationPricing::create($payload);
             }
@@ -697,7 +709,9 @@ class Show extends Component
                 'sort_order'     => (int) ($row['sort_order'] ?? 0),
             ];
             if (!empty($row['id'])) {
-                LocationAddon::whereKey($row['id'])->update($payload);
+                LocationAddon::whereKey($row['id'])
+                    ->where('location_id', $location->id)
+                    ->update($payload);
             } else {
                 LocationAddon::create($payload);
             }
@@ -766,11 +780,11 @@ class Show extends Component
      * Asset-Kategorien die über ContextFile laufen.
      */
     public const FILE_CATEGORIES = [
-        'buffet'              => ['label' => 'Buffetstationen',          'accept' => '.pdf,.png,.jpg,.jpeg,.webp', 'hint' => 'PDF, PNG, JPG oder WEBP, max. 20 MB pro Datei.'],
-        'seating_plans'       => ['label' => 'Bestuhlungspläne',         'accept' => '.pdf,.png,.jpg,.jpeg,.webp', 'hint' => 'PDF, PNG, JPG oder WEBP, max. 20 MB pro Datei.'],
-        'photos_with_seating' => ['label' => 'Fotos mit Bestuhlung',     'accept' => '.png,.jpg,.jpeg,.webp',      'hint' => 'PNG, JPG oder WEBP, max. 15 MB pro Foto.'],
-        'photos_empty'        => ['label' => 'Fotos (leere Location)',   'accept' => '.png,.jpg,.jpeg,.webp',      'hint' => 'PNG, JPG oder WEBP, max. 15 MB pro Foto.'],
-        'grundriss'           => ['label' => 'Grundriss',                'accept' => '.pdf,.png,.jpg,.jpeg,.webp', 'hint' => 'PDF, PNG, JPG oder WEBP, max. 20 MB.'],
+        'buffet'              => ['label' => 'Buffetstationen',          'accept' => '.pdf,.png,.jpg,.jpeg,.webp', 'mimes' => 'pdf,png,jpg,jpeg,webp', 'max_kb' => 20480, 'hint' => 'PDF, PNG, JPG oder WEBP, max. 20 MB pro Datei.'],
+        'seating_plans'       => ['label' => 'Bestuhlungspläne',         'accept' => '.pdf,.png,.jpg,.jpeg,.webp', 'mimes' => 'pdf,png,jpg,jpeg,webp', 'max_kb' => 20480, 'hint' => 'PDF, PNG, JPG oder WEBP, max. 20 MB pro Datei.'],
+        'photos_with_seating' => ['label' => 'Fotos mit Bestuhlung',     'accept' => '.png,.jpg,.jpeg,.webp',      'mimes' => 'png,jpg,jpeg,webp',     'max_kb' => 15360, 'hint' => 'PNG, JPG oder WEBP, max. 15 MB pro Foto.'],
+        'photos_empty'        => ['label' => 'Fotos (leere Location)',   'accept' => '.png,.jpg,.jpeg,.webp',      'mimes' => 'png,jpg,jpeg,webp',     'max_kb' => 15360, 'hint' => 'PNG, JPG oder WEBP, max. 15 MB pro Foto.'],
+        'grundriss'           => ['label' => 'Grundriss',                'accept' => '.pdf,.png,.jpg,.jpeg,.webp', 'mimes' => 'pdf,png,jpg,jpeg,webp', 'max_kb' => 20480, 'hint' => 'PDF, PNG, JPG oder WEBP, max. 20 MB.'],
     ];
 
     protected function loadFileReferences(): void
@@ -799,10 +813,27 @@ class Show extends Component
 
     public function uploadFiles(string $category): void
     {
+        // Kategorie-Whitelist: meta.category darf nur bekannte Werte enthalten.
+        if (!array_key_exists($category, self::FILE_CATEGORIES)) {
+            $this->addError('newUploadFiles', 'Ungültige Datei-Kategorie.');
+            return;
+        }
+
         $files = $this->newUploadFiles;
         if (!is_array($files) || empty($files)) {
             return;
         }
+
+        // Serverseitige Durchsetzung der im UI versprochenen Limits.
+        $cfg = self::FILE_CATEGORIES[$category];
+        $this->validate([
+            'newUploadFiles'   => 'array|max:20',
+            'newUploadFiles.*' => 'file|max:' . $cfg['max_kb'] . '|mimes:' . $cfg['mimes'],
+        ], [
+            'newUploadFiles.max'     => 'Maximal 20 Dateien pro Upload.',
+            'newUploadFiles.*.max'   => 'Datei zu groß (max. ' . round($cfg['max_kb'] / 1024) . ' MB).',
+            'newUploadFiles.*.mimes' => 'Erlaubte Formate: ' . strtoupper(str_replace(',', ', ', $cfg['mimes'])) . '.',
+        ]);
 
         $this->uploadingAssets = true;
 

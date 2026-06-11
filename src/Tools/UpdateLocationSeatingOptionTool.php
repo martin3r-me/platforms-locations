@@ -48,12 +48,14 @@ class UpdateLocationSeatingOptionTool implements ToolContract, ToolMetadataContr
                 return ToolResult::error('VALIDATION_ERROR', 'seating_option_id oder uuid noetig.');
             }
 
-            $row = $query->with('location')->first();
-            if (!$row) return ToolResult::error('SEATING_OPTION_NOT_FOUND', 'Nicht gefunden.');
+            // Query-Level-Scoping auf die Teams des Users (Defense-in-Depth).
+            $teamIds = $context->user->teams()->pluck('teams.id');
 
-            $teamId = $row->location?->team_id;
-            $hasAccess = $teamId && $context->user->teams()->where('teams.id', $teamId)->exists();
-            if (!$hasAccess) return ToolResult::error('ACCESS_DENIED', 'Kein Zugriff.');
+            $row = $query
+                ->whereHas('location', fn ($q) => $q->whereIn('team_id', $teamIds))
+                ->with('location')
+                ->first();
+            if (!$row) return ToolResult::error('SEATING_OPTION_NOT_FOUND', 'Nicht gefunden.');
 
             $update = [];
             if (array_key_exists('label', $arguments)) {

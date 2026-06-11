@@ -13,7 +13,10 @@ use Platform\Locations\Http\Controllers\BookletController;
 |
 */
 
-Route::middleware('web')->prefix('locations')->group(function () {
+// throttle: Token-Brute-Force bremsen und Chrome-Render (PDF) als
+// Lastvektor entschaerfen. 30 Requests/Minute pro IP reicht fuer
+// legitime Kunden-Nutzung locker.
+Route::middleware(['web', 'throttle:30,1'])->prefix('locations')->group(function () {
     Route::get('/booklet/{token}', [BookletController::class, 'publicShow'])
         ->name('locations.booklet.public.show');
 
