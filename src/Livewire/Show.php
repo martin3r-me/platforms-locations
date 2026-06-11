@@ -13,6 +13,7 @@ use Platform\Core\Models\ContextFileReference;
 use Platform\Core\Services\ContextFileService;
 use Platform\Locations\Models\Location;
 use Platform\Locations\Models\LocationAddon;
+use Platform\Locations\Models\LocationBlocking;
 use Platform\Locations\Models\LocationPricing;
 use Platform\Locations\Models\LocationSeatingOption;
 use Platform\Locations\Models\LocationSite;
@@ -95,6 +96,20 @@ class Show extends Component
 
     /** @var array<int,array{id:?int,uuid:?string,label:string,price_net:?string,unit:string,article_number:?string,is_active:bool,sort_order:int,_dirty:bool}> */
     public array $addonRows = [];
+
+    // ==== Sperrzeiten (Blockings) ====
+
+    /** @var array<int,array{id:int,uuid:string,start_date:string,end_date:string,reason:?string}> */
+    public array $blockingRows = [];
+
+    #[Validate('nullable|date')]
+    public ?string $newBlockingStart = null;
+
+    #[Validate('nullable|date')]
+    public ?string $newBlockingEnd = null;
+
+    #[Validate('nullable|string|max:255')]
+    public ?string $newBlockingReason = null;
 
     // ==== Article-Picker fuer Pricing-Rows (Cross-Modul Lookup zu events_articles) ====
 
@@ -212,6 +227,7 @@ class Show extends Component
 
         $this->refreshGrundrissState($loc->uuid);
         $this->loadSubRows($loc);
+        $this->loadBlockings($loc);
         $this->loadFileReferences();
         $this->loadLegacyAssetFiles($loc);
         $this->loadActivityItems();
@@ -306,7 +322,7 @@ class Show extends Component
             }
         }
 
-        unset($data['anlaesseInput']);
+        unset($data['anlaesseInput'], $data['newBlockingStart'], $data['newBlockingEnd'], $data['newBlockingReason']);
         $data['anlaesse'] = $anlaesse;
 
         $data['mehrfachbelegung'] = (bool) $this->mehrfachbelegung;
@@ -686,6 +702,62 @@ class Show extends Component
                 LocationAddon::create($payload);
             }
         }
+    }
+
+    // ================= Sperrzeiten (Blockings) =================
+
+    protected function loadBlockings(Location $location): void
+    {
+        $this->blockingRows = $location->blockings()->get()->map(fn (LocationBlocking $b) => [
+            'id'         => $b->id,
+            'uuid'       => $b->uuid,
+            'start_date' => $b->start_date?->toDateString(),
+            'end_date'   => $b->end_date?->toDateString(),
+            'reason'     => $b->reason,
+        ])->values()->all();
+    }
+
+    public function addBlocking(): void
+    {
+        $this->validate([
+            'newBlockingStart'  => 'required|date',
+            'newBlockingEnd'    => 'nullable|date',
+            'newBlockingReason' => 'nullable|string|max:255',
+        ], [
+            'newBlockingStart.required' => 'Bitte ein Startdatum angeben.',
+        ]);
+
+        $start = $this->newBlockingStart;
+        $end   = $this->newBlockingEnd ?: $start;
+        if ($end < $start) {
+            [$start, $end] = [$end, $start];
+        }
+
+        LocationBlocking::create([
+            'user_id'     => Auth::id(),
+            'team_id'     => $this->location->team_id,
+            'location_id' => $this->location->id,
+            'start_date'  => $start,
+            'end_date'    => $end,
+            'reason'      => $this->newBlockingReason ? trim($this->newBlockingReason) : null,
+        ]);
+
+        $this->newBlockingStart = null;
+        $this->newBlockingEnd = null;
+        $this->newBlockingReason = null;
+
+        $this->loadBlockings($this->location);
+    }
+
+    public function deleteBlocking(int $blockingId): void
+    {
+        // Scoping auf die eigene Location — IDs aus dem Client sind nicht vertrauenswuerdig.
+        LocationBlocking::query()
+            ->where('location_id', $this->location->id)
+            ->whereKey($blockingId)
+            ->delete();
+
+        $this->loadBlockings($this->location);
     }
 
     // ================= ContextFile-basierte Assets =================

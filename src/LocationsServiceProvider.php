@@ -130,6 +130,15 @@ class LocationsServiceProvider extends ServiceProvider
             $registry->register(new \Platform\Locations\Tools\CreateLocationSiteTool());
             $registry->register(new \Platform\Locations\Tools\UpdateLocationSiteTool());
             $registry->register(new \Platform\Locations\Tools\DeleteLocationSiteTool());
+
+            // Verfuegbarkeit (liest Sperrzeiten + Events-Bookings, sofern installiert)
+            $registry->register(new \Platform\Locations\Tools\CheckLocationAvailabilityTool());
+            $registry->register(new \Platform\Locations\Tools\FindAvailableLocationsTool());
+
+            // Sperrzeiten (Blockings)
+            $registry->register(new \Platform\Locations\Tools\ListLocationBlockingsTool());
+            $registry->register(new \Platform\Locations\Tools\CreateLocationBlockingTool());
+            $registry->register(new \Platform\Locations\Tools\DeleteLocationBlockingTool());
         } catch (\Throwable $e) {
             // Nicht fatal (Tool-Registry ggf. noch nicht verfügbar), aber
             // sichtbar machen — sonst verschwinden alle Tools stillschweigend.

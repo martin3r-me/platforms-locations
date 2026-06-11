@@ -6,7 +6,9 @@ use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Platform\Locations\Models\Location;
+use Platform\Locations\Models\LocationBlocking;
 use Platform\Locations\Models\LocationSite;
+use Platform\Locations\Services\AvailabilityService;
 
 class Occupancy extends Component
 {
@@ -69,22 +71,114 @@ class Occupancy extends Component
 
         [$periodStart, $periodEnd] = $this->periodRange();
 
-        $byDate       = $this->loadBookingsByDate($team->id, $locations, $periodStart, $periodEnd);
-        $monthlyStats = [];
-        $yearlyStats  = [];
+        $byDate = $this->loadBookingsByDate($team->id, $locations, $periodStart, $periodEnd);
+        $this->mergeBlockingsIntoByDate($byDate, $locations, $periodStart, $periodEnd);
+
+        $utilization = $this->buildUtilization($byDate, $filtered, $periodStart, $periodEnd);
 
         return view('locations::livewire.occupancy', [
-            'locations'    => $locations,
-            'venueRooms'   => $locations,
-            'sites'        => $sites,
-            'roomNames'    => $roomNames,
-            'periodStart'  => $periodStart,
-            'periodEnd'    => $periodEnd,
-            'periodLabel'  => $this->periodLabel(),
-            'byDate'       => $byDate,
-            'monthlyStats' => $monthlyStats,
-            'yearlyStats'  => $yearlyStats,
+            'locations'   => $locations,
+            'venueRooms'  => $locations,
+            'sites'       => $sites,
+            'roomNames'   => $roomNames,
+            'periodStart' => $periodStart,
+            'periodEnd'   => $periodEnd,
+            'periodLabel' => $this->periodLabel(),
+            'byDate'      => $byDate,
+            'utilization' => $utilization,
         ])->layout('platform::layouts.app');
+    }
+
+    /**
+     * Sperrzeiten in das byDate-Shape einmischen — sie erscheinen damit als
+     * "Gesperrt"-Eintraege im Belegungskalender, analog zu Buchungen.
+     *
+     * @param array<string, array<string, array<int, object>>> $byDate
+     * @param \Illuminate\Support\Collection<int, Location> $locations
+     */
+    protected function mergeBlockingsIntoByDate(array &$byDate, $locations, string $periodStart, string $periodEnd): void
+    {
+        $locKuerzelById = $locations->pluck('kuerzel', 'id');
+
+        $blockings = LocationBlocking::query()
+            ->whereIn('location_id', $locations->pluck('id'))
+            ->overlapping($periodStart, $periodEnd)
+            ->get();
+
+        foreach ($blockings as $blocking) {
+            $kuerzel = $locKuerzelById->get($blocking->location_id);
+            if (!$kuerzel) {
+                continue;
+            }
+
+            // Sperre auf die Tage innerhalb des Zeitraums begrenzen.
+            $cursor = max($blocking->start_date->toDateString(), $periodStart);
+            $last   = min($blocking->end_date->toDateString(), $periodEnd);
+
+            $day = \Carbon\Carbon::parse($cursor);
+            while ($day->toDateString() <= $last) {
+                $byDate[$day->toDateString()][$kuerzel][] = (object) [
+                    'title'       => $blocking->reason ?: 'Gesperrt',
+                    'optionsrang' => 'Gesperrt',
+                ];
+                $day->addDay();
+            }
+        }
+
+        ksort($byDate);
+    }
+
+    /**
+     * Auslastungs-Kennzahlen pro Location fuer den Zeitraum.
+     *
+     * Ein Tag zaehlt als "belegt", wenn mind. eine Buchung mit hartem
+     * Optionsrang (Definitiv/Vertrag) anliegt; als "Option", wenn nur
+     * Optionen anliegen; Sperrtage zaehlen separat. Quote = belegte Tage /
+     * Tage im Zeitraum.
+     *
+     * @param array<string, array<string, array<int, object>>> $byDate
+     * @param \Illuminate\Support\Collection<int, Location> $locations
+     * @return array<int, array{kuerzel: string, name: string, total_days: int, belegt: int, optionen: int, gesperrt: int, quote: float}>
+     */
+    protected function buildUtilization(array $byDate, $locations, string $periodStart, string $periodEnd): array
+    {
+        $totalDays = \Carbon\Carbon::parse($periodStart)->diffInDays(\Carbon\Carbon::parse($periodEnd)) + 1;
+
+        return $locations->map(function (Location $location) use ($byDate, $totalDays) {
+            $belegt = 0;
+            $optionen = 0;
+            $gesperrt = 0;
+
+            foreach ($byDate as $rooms) {
+                $entries = $rooms[$location->kuerzel] ?? null;
+                if (!$entries) {
+                    continue;
+                }
+
+                $ranks = array_filter(
+                    array_map(fn ($e) => (string) ($e->optionsrang ?? ''), $entries),
+                    fn ($r) => !in_array($r, AvailabilityService::IGNORED_RANKS, true)
+                );
+
+                if (in_array('Gesperrt', $ranks, true)) {
+                    $gesperrt++;
+                } elseif (array_intersect($ranks, AvailabilityService::HARD_RANKS) !== []) {
+                    $belegt++;
+                } elseif ($ranks !== []) {
+                    $optionen++;
+                }
+            }
+
+            return [
+                'kuerzel'    => (string) $location->kuerzel,
+                'name'       => (string) $location->name,
+                'total_days' => $totalDays,
+                'belegt'     => $belegt,
+                'optionen'   => $optionen,
+                'gesperrt'   => $gesperrt,
+                'quote'      => $totalDays > 0 ? round($belegt / $totalDays * 100, 1) : 0.0,
+            ];
+        })->values()->all();
     }
 
     /**

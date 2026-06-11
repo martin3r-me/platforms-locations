@@ -397,6 +397,14 @@ class Location extends Model implements HasFileContext
     }
 
     /**
+     * Sperrzeiten (tagesgenau) — gelten in Verfuegbarkeits-Checks als belegt.
+     */
+    public function blockings(): HasMany
+    {
+        return $this->hasMany(LocationBlocking::class)->orderBy('start_date');
+    }
+
+    /**
      * Liefert das (erste) Pricing zu einem Tag-Typ-Volltext (z. B. "Veranstaltungstag")
      * oder null, wenn fuer diese Location kein Eintrag gepflegt ist.
      */

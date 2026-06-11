@@ -471,6 +471,56 @@
                 </div>
             </x-ui-panel>
 
+            {{-- ===== Panel: Sperrzeiten ===== --}}
+            <x-ui-panel title="Sperrzeiten" subtitle="Tage, an denen die Location nicht buchbar ist">
+                <div class="space-y-2 p-1">
+                    @if(empty($blockingRows))
+                        <p class="text-[0.62rem] text-[var(--ui-muted)]">Keine Sperrzeiten hinterlegt.</p>
+                    @else
+                        <div class="space-y-1.5">
+                            @foreach($blockingRows as $row)
+                                <div class="flex items-center gap-2 p-2 rounded-md border border-[var(--ui-border)] bg-[var(--ui-muted-5)]"
+                                     wire:key="blocking-{{ $row['uuid'] }}">
+                                    @svg('heroicon-o-no-symbol', 'w-4 h-4 text-red-500 flex-shrink-0')
+                                    <span class="text-xs font-mono font-bold text-[var(--ui-secondary)]">
+                                        {{ \Carbon\Carbon::parse($row['start_date'])->format('d.m.Y') }}
+                                        @if($row['end_date'] !== $row['start_date'])
+                                            – {{ \Carbon\Carbon::parse($row['end_date'])->format('d.m.Y') }}
+                                        @endif
+                                    </span>
+                                    <span class="text-xs text-[var(--ui-muted)] flex-1 truncate">{{ $row['reason'] ?: '—' }}</span>
+                                    <button type="button" wire:click="deleteBlocking({{ $row['id'] }})"
+                                            wire:confirm="Sperrzeit wirklich löschen?"
+                                            class="text-[0.62rem] text-red-600 hover:bg-red-50 rounded p-1.5">
+                                        @svg('heroicon-o-trash', 'w-3.5 h-3.5')
+                                    </button>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+
+                    <div class="grid grid-cols-[140px_140px_1fr_auto] gap-2 items-start pt-1">
+                        <div>
+                            <input wire:model="newBlockingStart" type="date"
+                                   class="w-full border border-[var(--ui-border)] rounded-md px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/30">
+                            @error('newBlockingStart')
+                                <p class="text-[0.6rem] text-red-600 mt-0.5">{{ $message }}</p>
+                            @enderror
+                        </div>
+                        <input wire:model="newBlockingEnd" type="date" title="Optional — leer = Eintages-Sperre"
+                               class="w-full border border-[var(--ui-border)] rounded-md px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/30">
+                        <input wire:model="newBlockingReason" type="text" maxlength="255" placeholder="Grund (z.B. Renovierung)"
+                               class="w-full border border-[var(--ui-border)] rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/30">
+                        <button type="button" wire:click="addBlocking"
+                                class="text-[0.62rem] text-[var(--ui-primary)] hover:underline flex items-center gap-1 py-1.5">
+                            @svg('heroicon-o-plus', 'w-3 h-3')
+                            Sperren
+                        </button>
+                    </div>
+                    <p class="text-[0.62rem] text-[var(--ui-muted)]">Gesperrte Tage gelten im Verfügbarkeits-Check und in der Auslastung als nicht buchbar (z.B. Renovierung, Eigenveranstaltung). Tagesgenau, beide Grenzen inklusive.</p>
+                </div>
+            </x-ui-panel>
+
             {{-- ===== Panel: Grundriss ===== --}}
             <x-ui-panel title="Grundriss" subtitle="Grundriss-Datei (S3)">
                 <div class="space-y-2 p-1">

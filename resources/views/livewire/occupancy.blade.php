@@ -23,6 +23,7 @@
         '2. Option'  => ['bg' => '#fff7ed', 'color' => '#c2410c', 'border' => '#fed7aa'],
         '3. Option'  => ['bg' => '#faf5ff', 'color' => '#7c3aed', 'border' => '#ddd6fe'],
         'Abgesagt'   => ['bg' => '#fef2f2', 'color' => '#b91c1c', 'border' => '#fecaca'],
+        'Gesperrt'   => ['bg' => '#f1f5f9', 'color' => '#334155', 'border' => '#cbd5e1'],
     ];
 @endphp
 
@@ -207,12 +208,44 @@
                         </div>
                     </x-ui-panel>
 
-                    {{-- ===== Monatsauslastung ===== --}}
-                    @if(!empty($monthlyStats))
-                        <x-ui-panel title="Monatsauslastung" subtitle="Gebuchte Tage pro Monat">
-                            <div class="p-6 text-center text-xs text-[var(--ui-muted)]">
-                                Monatsauslastung wird berechnet sobald Buchungen vorliegen.
+                    {{-- ===== Auslastung pro Location ===== --}}
+                    @if(!empty($utilization))
+                        <x-ui-panel title="Auslastung pro Location" subtitle="Belegte Tage im gewählten Zeitraum ({{ $periodLabel }})">
+                            <div class="overflow-x-auto">
+                                <table class="w-full border-collapse">
+                                    <thead>
+                                        <tr class="bg-[var(--ui-muted-5)] border-b-2 border-[var(--ui-border)]">
+                                            <th class="px-3 py-2.5 text-left text-[0.62rem] font-bold uppercase tracking-wider text-[var(--ui-muted)]">Location</th>
+                                            <th class="px-3 py-2.5 text-right text-[0.62rem] font-bold uppercase tracking-wider text-[var(--ui-muted)]">Belegt</th>
+                                            <th class="px-3 py-2.5 text-right text-[0.62rem] font-bold uppercase tracking-wider text-[var(--ui-muted)]">Optionen</th>
+                                            <th class="px-3 py-2.5 text-right text-[0.62rem] font-bold uppercase tracking-wider text-[var(--ui-muted)]">Gesperrt</th>
+                                            <th class="px-3 py-2.5 text-left text-[0.62rem] font-bold uppercase tracking-wider text-[var(--ui-muted)] w-48">Quote</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach($utilization as $u)
+                                            <tr class="border-b border-[var(--ui-border)]/50" wire:key="util-{{ $u['kuerzel'] }}">
+                                                <td class="px-3 py-2">
+                                                    <span class="text-xs font-mono font-bold text-[var(--ui-secondary)]">{{ $u['kuerzel'] }}</span>
+                                                    <span class="text-[0.62rem] text-[var(--ui-muted)] ml-1.5">{{ $u['name'] }}</span>
+                                                </td>
+                                                <td class="px-3 py-2 text-right text-xs font-mono font-bold text-[var(--ui-secondary)]">{{ $u['belegt'] }}<span class="text-[var(--ui-muted)] font-normal">/{{ $u['total_days'] }}</span></td>
+                                                <td class="px-3 py-2 text-right text-xs font-mono text-[var(--ui-muted)]">{{ $u['optionen'] }}</td>
+                                                <td class="px-3 py-2 text-right text-xs font-mono text-[var(--ui-muted)]">{{ $u['gesperrt'] }}</td>
+                                                <td class="px-3 py-2">
+                                                    <div class="flex items-center gap-2">
+                                                        <div class="flex-1 h-2 rounded-full bg-[var(--ui-muted-5)] overflow-hidden">
+                                                            <div class="h-full rounded-full bg-[var(--ui-primary)]" style="width: {{ min(100, $u['quote']) }}%;"></div>
+                                                        </div>
+                                                        <span class="text-[0.62rem] font-mono font-bold text-[var(--ui-secondary)] w-12 text-right">{{ number_format($u['quote'], 1, ',', '.') }}%</span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
                             </div>
+                            <p class="text-[0.62rem] text-[var(--ui-muted)] px-3 py-2">Quote = Tage mit Definitiv-/Vertrags-Buchung geteilt durch Tage im Zeitraum. Options- und Sperrtage zählen nicht in die Quote.</p>
                         </x-ui-panel>
                     @endif
                 @endif
