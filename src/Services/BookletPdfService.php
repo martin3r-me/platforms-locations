@@ -3,6 +3,7 @@
 namespace Platform\Locations\Services;
 
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Platform\Locations\Models\Location;
 use Spatie\Browsershot\Browsershot;
@@ -14,9 +15,8 @@ use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
  * Anlaessen und Adress-Block.
  *
  * Voraussetzung am Host: Chromium oder Google Chrome installiert.
- * Konfiguration via Env:
- *   CHROMIUM_PATH=/usr/bin/chromium       (optional, sonst Auto-Discover)
- *   BROWSERSHOT_NO_SANDBOX=1              (Default 1, fuer Linux-Container)
+ * Konfiguration via `config('locations.booklet')` (cache-sicher, Env-Keys
+ * CHROMIUM_PATH / BROWSERSHOT_NO_SANDBOX / LOCATIONS_BOOKLET_PDF_CACHE).
  */
 class BookletPdfService
 {
@@ -93,10 +93,10 @@ class BookletPdfService
             ->margins(0, 0, 0, 0)
             ->timeout(60);
 
-        if ($path = env('CHROMIUM_PATH')) {
+        if ($path = config('locations.booklet.chromium_path')) {
             $shot->setChromePath($path);
         }
-        if ((bool) env('BROWSERSHOT_NO_SANDBOX', true)) {
+        if ((bool) config('locations.booklet.no_sandbox', true)) {
             $shot->noSandbox();
         }
 
@@ -104,11 +104,33 @@ class BookletPdfService
     }
 
     /**
+     * Gecachtes PDF-Binary. Der Cache-Key enthaelt updated_at — jede
+     * Stammdaten-/Sub-Entity-Aenderung (via $touches bzw. explizitem touch())
+     * erzeugt sofort einen frischen Render; der TTL begrenzt die maximale
+     * Stale-Zeit fuer Aenderungen, die updated_at nicht anfassen.
+     */
+    public function cachedPdf(Location $location): string
+    {
+        $ttl = (int) config('locations.booklet.pdf_cache_seconds', 900);
+        if ($ttl <= 0) {
+            return $this->renderPdf($location);
+        }
+
+        $key = sprintf(
+            'locations.booklet.pdf.%d.%d',
+            $location->id,
+            $location->updated_at?->getTimestamp() ?? 0,
+        );
+
+        return Cache::remember($key, $ttl, fn () => $this->renderPdf($location));
+    }
+
+    /**
      * HTTP-Response (inline) — fuer Public-View und Auth-Preview.
      */
     public function inlineResponse(Location $location): SymfonyResponse
     {
-        return response($this->renderPdf($location), 200, [
+        return response($this->cachedPdf($location), 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="' . $this->filename($location) . '"',
         ]);
@@ -119,7 +141,7 @@ class BookletPdfService
      */
     public function downloadResponse(Location $location): SymfonyResponse
     {
-        return response($this->renderPdf($location), 200, [
+        return response($this->cachedPdf($location), 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'attachment; filename="' . $this->filename($location) . '"',
         ]);

@@ -340,7 +340,7 @@
                     @else
                         <div class="space-y-1.5">
                             @foreach($seatingRows as $i => $row)
-                                <div class="grid grid-cols-[1fr_120px_auto] gap-2 items-center" wire:key="seating-{{ $i }}">
+                                <div class="grid grid-cols-[1fr_120px_auto] gap-2 items-center" wire:key="seating-{{ $row['_key'] ?? $i }}">
                                     <input wire:model="seatingRows.{{ $i }}.label" type="text" placeholder="z.B. Reihenbestuhlung"
                                            class="w-full border border-[var(--ui-border)] rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/30">
                                     <input wire:model="seatingRows.{{ $i }}.pax_max_ca" type="number" min="0" placeholder="bis zu PAX"
@@ -372,7 +372,7 @@
                     @else
                         <div class="space-y-1.5">
                             @foreach($pricingRows as $i => $row)
-                                <div class="grid grid-cols-[1fr_120px_1fr_180px_auto] gap-2 items-center" wire:key="pricing-{{ $i }}">
+                                <div class="grid grid-cols-[1fr_120px_1fr_180px_auto] gap-2 items-center" wire:key="pricing-{{ $row['_key'] ?? $i }}">
                                     <input wire:model="pricingRows.{{ $i }}.day_type_label" type="text" placeholder="Tag-Typ (z.B. Veranstaltungstag)"
                                            class="w-full border border-[var(--ui-border)] rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/30">
                                     <input wire:model="pricingRows.{{ $i }}.price_net" type="number" step="0.01" min="0" placeholder="Preis €"
@@ -424,7 +424,7 @@
                     @else
                         <div class="space-y-1.5">
                             @foreach($addonRows as $i => $row)
-                                <div class="grid grid-cols-[1fr_110px_120px_180px_auto_auto] gap-2 items-center" wire:key="addon-{{ $i }}">
+                                <div class="grid grid-cols-[1fr_110px_120px_180px_auto_auto] gap-2 items-center" wire:key="addon-{{ $row['_key'] ?? $i }}">
                                     <input wire:model="addonRows.{{ $i }}.label" type="text" placeholder="z.B. Heizung"
                                            class="w-full border border-[var(--ui-border)] rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--ui-primary)]/30">
                                     <input wire:model="addonRows.{{ $i }}.price_net" type="number" step="0.01" min="0" placeholder="Preis €"

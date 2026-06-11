@@ -17,6 +17,9 @@ class LocationAddon extends Model
 
     protected $table = 'locations_addons';
 
+    /** Bumpt updated_at der Location — invalidiert u. a. den Booklet-PDF-Cache. */
+    protected $touches = ['location'];
+
     public const UNIT_PRO_TAG = 'pro_tag';
     public const UNIT_PRO_VA_TAG = 'pro_va_tag';
     public const UNIT_EINMALIG = 'einmalig';

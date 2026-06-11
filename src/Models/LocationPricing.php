@@ -17,6 +17,9 @@ class LocationPricing extends Model
 
     protected $table = 'locations_pricings';
 
+    /** Bumpt updated_at der Location — invalidiert u. a. den Booklet-PDF-Cache. */
+    protected $touches = ['location'];
+
     protected $fillable = [
         'uuid',
         'location_id',

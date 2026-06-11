@@ -2,6 +2,7 @@
 
 namespace Platform\Locations\Services;
 
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 /**
@@ -30,6 +31,40 @@ class GeocodingService
         }
 
         $cfg = config('locations.geocoding', []);
+
+        // Cache pro normalisiertem Query — haelt die Nominatim-Policy
+        // (max. 1 Request/Sekunde) auch bei Live-Eingabe mehrerer User ein.
+        $ttl = (int) ($cfg['cache_seconds'] ?? 3600);
+        if ($ttl <= 0) {
+            return $this->fetchSuggestions($query, $cfg);
+        }
+
+        $cacheKey = 'locations.geocode.' . md5(implode('|', [
+            mb_strtolower($query),
+            (string) ($cfg['language'] ?? 'de'),
+            (string) ($cfg['countrycodes'] ?? ''),
+        ]));
+
+        $cached = Cache::get($cacheKey);
+        if (is_array($cached)) {
+            return $cached;
+        }
+
+        $results = $this->fetchSuggestions($query, $cfg);
+
+        // Leere Listen nur kurz cachen — sie koennen auch von einem
+        // Nominatim-Ausfall stammen, nicht nur von "keine Treffer".
+        Cache::put($cacheKey, $results, $results === [] ? 60 : $ttl);
+
+        return $results;
+    }
+
+    /**
+     * @param array<string,mixed> $cfg
+     * @return array<int, array{display:string, lat:?float, lon:?float, type:string}>
+     */
+    protected function fetchSuggestions(string $query, array $cfg): array
+    {
         $userAgent = $cfg['user_agent']
             ?: ('Platform-Locations/1.0 (' . (string) config('app.name', 'platform') . ')');
 

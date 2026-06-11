@@ -17,6 +17,9 @@ class LocationSeatingOption extends Model
 
     protected $table = 'locations_seating_options';
 
+    /** Bumpt updated_at der Location — invalidiert u. a. den Booklet-PDF-Cache. */
+    protected $touches = ['location'];
+
     protected $fillable = [
         'uuid',
         'location_id',

@@ -31,6 +31,27 @@ return [
         'language'      => env('LOCATIONS_NOMINATIM_LANG', 'de'),
         'countrycodes'  => env('LOCATIONS_NOMINATIM_COUNTRY', 'de,at,ch,lu,nl,be,fr,it'),
         'limit'         => 6,
+        // Suchergebnisse werden gecacht, um die Nominatim-Policy
+        // (max. 1 Request/Sekunde) auch bei Live-Eingabe einzuhalten.
+        'cache_seconds' => (int) env('LOCATIONS_NOMINATIM_CACHE', 3600),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Kunden-Booklet (Browsershot / Headless Chrome)
+    |--------------------------------------------------------------------------
+    |
+    | chromium_path: expliziter Chrome/Chromium-Binary-Pfad (sonst Auto-Discover).
+    | pdf_cache_seconds: wie lange ein gerendertes PDF gecacht wird. Der
+    | Cache-Key enthält updated_at der Location — Stammdaten-Änderungen
+    | invalidieren sofort, der TTL begrenzt nur die Rest-Stale-Zeit
+    | (z. B. bei Site-Bild-Änderungen).
+    |
+    */
+    'booklet' => [
+        'chromium_path'     => env('CHROMIUM_PATH'),
+        'no_sandbox'        => (bool) env('BROWSERSHOT_NO_SANDBOX', true),
+        'pdf_cache_seconds' => (int) env('LOCATIONS_BOOKLET_PDF_CACHE', 900),
     ],
 
     'navigation' => [

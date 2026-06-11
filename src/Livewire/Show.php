@@ -5,6 +5,7 @@ namespace Platform\Locations\Livewire;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -317,10 +318,17 @@ class Show extends Component
             $this->persistSeatingRows($this->location);
             $this->persistPricingRows($this->location);
             $this->persistAddonRows($this->location);
+            // Query-Builder-Updates in persist*Rows feuern keine Model-Events
+            // ($touches greift nicht) — updated_at daher explizit bumpen,
+            // damit der Booklet-PDF-Cache invalidiert wird.
+            $this->location->touch();
         });
 
         $this->location->refresh();
         $this->loadForm();
+
+        // Name/Kuerzel/Site koennen sich geaendert haben — Sidebar-Cache busten.
+        unset($this->allLocations);
     }
 
     public function delete(): void
@@ -404,6 +412,7 @@ class Show extends Component
                 throw new \RuntimeException("Grundriss konnte nicht gespeichert werden (disk={$diskName}).");
             }
 
+            $this->location->touch();
             $this->refreshGrundrissState($this->location->uuid);
         } catch (\Illuminate\Validation\ValidationException $e) {
             throw $e;
@@ -434,6 +443,7 @@ class Show extends Component
             ]);
         }
 
+        $this->location->touch();
         $this->refreshGrundrissState($this->location->uuid);
     }
 
@@ -460,7 +470,11 @@ class Show extends Component
 
     protected function loadSubRows(Location $location): void
     {
+        // _key: stabiler wire:key pro Zeile (UUID bzw. uniqid bei neuen Rows).
+        // Array-Indizes verschieben sich beim Löschen — Livewire wuerde dann
+        // DOM-State falschen Zeilen zuordnen.
         $this->seatingRows = $location->seatingOptions->map(fn (LocationSeatingOption $r) => [
+            '_key'       => $r->uuid,
             'id'         => $r->id,
             'uuid'       => $r->uuid,
             'label'      => (string) $r->label,
@@ -470,6 +484,7 @@ class Show extends Component
         ])->values()->all();
 
         $this->pricingRows = $location->pricings->map(fn (LocationPricing $r) => [
+            '_key'           => $r->uuid,
             'id'             => $r->id,
             'uuid'           => $r->uuid,
             'day_type_label' => (string) $r->day_type_label,
@@ -481,6 +496,7 @@ class Show extends Component
         ])->values()->all();
 
         $this->addonRows = $location->addons->map(fn (LocationAddon $r) => [
+            '_key'           => $r->uuid,
             'id'             => $r->id,
             'uuid'           => $r->uuid,
             'label'          => (string) $r->label,
@@ -497,6 +513,7 @@ class Show extends Component
     {
         $next = $this->seatingRows ? max(array_column($this->seatingRows, 'sort_order')) + 1 : 1;
         $this->seatingRows[] = [
+            '_key'       => uniqid('new-', true),
             'id'         => null,
             'uuid'       => null,
             'label'      => '',
@@ -514,6 +531,7 @@ class Show extends Component
         $row = $this->seatingRows[$index];
         if ($row['id']) {
             LocationSeatingOption::whereKey($row['id'])->delete();
+            $this->location->touch();
         }
         unset($this->seatingRows[$index]);
         $this->seatingRows = array_values($this->seatingRows);
@@ -523,6 +541,7 @@ class Show extends Component
     {
         $next = $this->pricingRows ? max(array_column($this->pricingRows, 'sort_order')) + 1 : 1;
         $this->pricingRows[] = [
+            '_key'           => uniqid('new-', true),
             'id'             => null,
             'uuid'           => null,
             'day_type_label' => '',
@@ -542,6 +561,7 @@ class Show extends Component
         $row = $this->pricingRows[$index];
         if ($row['id']) {
             LocationPricing::whereKey($row['id'])->delete();
+            $this->location->touch();
         }
         unset($this->pricingRows[$index]);
         $this->pricingRows = array_values($this->pricingRows);
@@ -551,6 +571,7 @@ class Show extends Component
     {
         $next = $this->addonRows ? max(array_column($this->addonRows, 'sort_order')) + 1 : 1;
         $this->addonRows[] = [
+            '_key'           => uniqid('new-', true),
             'id'             => null,
             'uuid'           => null,
             'label'          => '',
@@ -571,6 +592,7 @@ class Show extends Component
         $row = $this->addonRows[$index];
         if ($row['id']) {
             LocationAddon::whereKey($row['id'])->delete();
+            $this->location->touch();
         }
         unset($this->addonRows[$index]);
         $this->addonRows = array_values($this->addonRows);
@@ -746,6 +768,7 @@ class Show extends Component
         } finally {
             $this->newUploadFiles = [];
             $this->uploadingAssets = false;
+            $this->location->touch();
             $this->loadFileReferences();
         }
     }
@@ -771,6 +794,7 @@ class Show extends Component
         $ref->meta = $meta;
         $ref->save();
 
+        $this->location->touch();
         $this->loadFileReferences();
     }
 
@@ -787,6 +811,7 @@ class Show extends Component
                     app(ContextFileService::class)->delete($ref->context_file_id);
                 }
                 $this->location->removeFileReference($referenceId);
+                $this->location->touch();
             }
         } catch (\Throwable $e) {
             \Log::error('[Locations] ContextFile-Löschen fehlgeschlagen', [
@@ -965,23 +990,34 @@ class Show extends Component
         return class_exists('\\Platform\\Events\\Models\\Article');
     }
 
-    public function render()
+    /**
+     * Sidebar-Navigation (alle Locations des Teams). persist:true cached
+     * ueber Livewire-Roundtrips hinweg — sonst laeuft die Query bei jedem
+     * Tastendruck im debounced Adressfeld erneut. save() bustet den Cache.
+     */
+    #[Computed(persist: true, seconds: 300)]
+    public function allLocations()
     {
-        $team = Auth::user()->currentTeam;
-
-        $allLocations = Location::where('team_id', $team->id)
+        return Location::where('team_id', Auth::user()->currentTeam->id)
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get(['uuid', 'name', 'kuerzel', 'site_id']);
+    }
 
-        $allSites = LocationSite::where('team_id', $team->id)
+    #[Computed(persist: true, seconds: 300)]
+    public function allSites()
+    {
+        return LocationSite::where('team_id', Auth::user()->currentTeam->id)
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get(['id', 'name']);
+    }
 
+    public function render()
+    {
         return view('locations::livewire.show', [
-            'allLocations' => $allLocations,
-            'allSites'     => $allSites,
+            'allLocations' => $this->allLocations,
+            'allSites'     => $this->allSites,
         ])->layout('platform::layouts.app');
     }
 }

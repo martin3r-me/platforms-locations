@@ -131,7 +131,11 @@ class LocationsServiceProvider extends ServiceProvider
             $registry->register(new \Platform\Locations\Tools\UpdateLocationSiteTool());
             $registry->register(new \Platform\Locations\Tools\DeleteLocationSiteTool());
         } catch (\Throwable $e) {
-            // Silent fail – Tool-Registry ggf. noch nicht verfügbar
+            // Nicht fatal (Tool-Registry ggf. noch nicht verfügbar), aber
+            // sichtbar machen — sonst verschwinden alle Tools stillschweigend.
+            \Illuminate\Support\Facades\Log::warning('[Locations] Tool-Registrierung fehlgeschlagen', [
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 

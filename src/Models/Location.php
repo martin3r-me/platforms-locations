@@ -258,18 +258,35 @@ class Location extends Model implements HasFileContext
     }
 
     /**
+     * Memo fuer floorPlanPath() — das Directory-Listing (S3-API-Call) soll
+     * pro Model-Instanz nur einmal laufen, auch wenn floorPlanIsImage(),
+     * floorPlanUrl() etc. es mehrfach brauchen.
+     *
+     * @var array{path: ?string}|null
+     */
+    private ?array $floorPlanPathMemo = null;
+
+    /**
      * Disk-relativer Pfad der aktuell hinterlegten Grundriss-Datei (oder null).
      * Scannt das Verzeichnis und gibt die erste gefundene Datei zurueck.
      */
     public function floorPlanPath(): ?string
     {
+        if ($this->floorPlanPathMemo !== null) {
+            return $this->floorPlanPathMemo['path'];
+        }
+
         try {
             $disk = Storage::disk($this->floorPlanDisk());
             $files = $disk->files($this->floorPlanDirectory());
-            return $files[0] ?? null;
+            $path = $files[0] ?? null;
         } catch (\Throwable $e) {
-            return null;
+            $path = null;
         }
+
+        $this->floorPlanPathMemo = ['path' => $path];
+
+        return $path;
     }
 
     public function hasFloorPlan(): bool
