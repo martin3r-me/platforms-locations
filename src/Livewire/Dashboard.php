@@ -30,7 +30,7 @@ class Dashboard extends Component
         $team = $user->currentTeam;
 
         $locations = Location::where('team_id', $team->id)
-            ->with('site:id,name')
+            ->with('site:id,uuid,name')
             ->get();
 
         $totalLocations     = $locations->count();
@@ -38,13 +38,15 @@ class Dashboard extends Component
         $totalCapacity      = (int) $locations->sum('pax_max');
         $multiUseLocations  = $locations->where('mehrfachbelegung', true)->count();
 
-        // Site-Breakdown für Sidebar
+        // Site-Breakdown (Kachel-Bereich unter den Kennzahlen)
         $siteBreakdown = $locations
             ->groupBy(fn ($l) => $l->site?->name ?: '– Ohne Site –')
             ->map(fn ($group, $name) => [
                 'name'     => $name,
                 'count'    => $group->count(),
                 'capacity' => (int) $group->sum('pax_max'),
+                // null bei "Ohne Site" -> Karte wird dann nicht verlinkt
+                'uuid'     => $group->first()->site?->uuid,
             ])
             ->sortByDesc('capacity')
             ->values();
@@ -53,8 +55,9 @@ class Dashboard extends Component
         $topLocations = $locations
             ->filter(fn ($l) => $l->pax_max > 0)
             ->sortByDesc('pax_max')
-            ->take(5)
+            ->take(6)
             ->map(fn ($l) => [
+                'uuid'     => $l->uuid,
                 'name'     => $l->name,
                 'kuerzel'  => $l->kuerzel,
                 'pax_max'  => $l->pax_max,
