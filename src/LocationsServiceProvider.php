@@ -10,7 +10,6 @@
 namespace Platform\Locations;
 
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
 use Platform\Core\PlatformCore;
@@ -30,7 +29,7 @@ class LocationsServiceProvider extends ServiceProvider
         if (
             config()->has('locations.routing') &&
             config()->has('locations.navigation') &&
-            Schema::hasTable('modules')
+            PlatformCore::modulesTableExists()
         ) {
             PlatformCore::registerModule([
                 'key'        => 'locations',
